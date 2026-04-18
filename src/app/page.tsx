@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Sparkles, Shield, Zap, BarChart3, Users, ChevronDown, Brain, Moon, Flame } from "lucide-react";
 import { VyvataLogo } from "@/components/VyvataLogo";
+import AuthNavLink from "@/components/AuthNavLink";
 
 const PLACEHOLDER = `Energy crashes mid-afternoon
 Poor sleep, waking at 3am
@@ -17,19 +18,19 @@ Paste your symptoms, goals, or current stack — however you have it.`;
 
 const PROTOCOLS = [
   {
-    Icon: Brain,
+    icon: "/icons/Read a Good Book.svg",
     title: "Cognitive Performance",
     tags: ["Focus", "Memory", "Clarity"],
     desc: "Sharpen attention, reduce brain fog, optimize cognitive output.",
   },
   {
-    Icon: Moon,
+    icon: "/icons/Get Enough Sleep.svg",
     title: "Sleep & Recovery",
     tags: ["Deep Sleep", "Recovery", "HRV"],
     desc: "Restore restorative sleep cycles and accelerate physical recovery.",
   },
   {
-    Icon: Flame,
+    icon: "/icons/Detoxify Your Body.svg",
     title: "Inflammation & Longevity",
     tags: ["Inflammation", "Oxidative Stress", "Lifespan"],
     desc: "Target systemic inflammation and support long-term cellular health.",
@@ -82,7 +83,7 @@ export default function LandingPage() {
           <a href="#how" className="hover:text-white transition-colors">How it works</a>
           <a href="#protocols" className="hover:text-white transition-colors">Protocols</a>
           <a href="#practitioners" className="hover:text-white transition-colors">Practitioners</a>
-          <a href="/signin" className="hover:text-white transition-colors">Sign in</a>
+          <AuthNavLink />
           <a
             href="/practitioner"
             className="hover:text-white transition-colors text-xs px-3 py-1.5 rounded-lg"
@@ -313,7 +314,7 @@ export default function LandingPage() {
                 onClick={scrollToInput}
               >
                 <div style={{ color: "#14B8A6" }}>
-                  <p.Icon size={32} strokeWidth={1.5} />
+                  <img src={p.icon} alt={p.title} className="w-12 h-12" style={{ filter: "brightness(0) saturate(100%) invert(70%) sepia(35%) saturate(1000%) hue-rotate(130deg) brightness(95%) contrast(90%)" }} />
                 </div>
                 <div>
                   <h3

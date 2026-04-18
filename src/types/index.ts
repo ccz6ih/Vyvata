@@ -1,5 +1,4 @@
 // StackReceipts — Core Types
-import type { LucideIcon } from "lucide-react";
 
 export type Goal =
   | "sleep"
@@ -13,7 +12,7 @@ export type Goal =
 export interface GoalOption {
   id: Goal;
   label: string;
-  Icon: LucideIcon;
+  icon: string;
 }
 
 export interface ParsedIngredient {

@@ -4,18 +4,24 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
-import { ArrowRight, ArrowLeft, Moon, Zap, Brain, Flame, Hourglass, Dumbbell, RefreshCw } from "lucide-react";
-import type { Goal, GoalOption } from "@/types";
+import { ArrowRight, ArrowLeft } from "lucide-react";
+import type { Goal } from "@/types";
 import { VyvataLogo } from "@/components/VyvataLogo";
 
+type GoalOption = {
+  id: Goal;
+  label: string;
+  icon: string;
+};
+
 const GOALS: GoalOption[] = [
-  { id: "sleep",        label: "Sleep & Recovery",       Icon: Moon },
-  { id: "energy",       label: "Energy & Vitality",      Icon: Zap },
-  { id: "focus",        label: "Focus & Cognition",      Icon: Brain },
-  { id: "inflammation", label: "Reduce Inflammation",    Icon: Flame },
-  { id: "longevity",    label: "Longevity & Healthspan", Icon: Hourglass },
-  { id: "muscle",       label: "Strength & Muscle",      Icon: Dumbbell },
-  { id: "recovery",     label: "Athletic Recovery",      Icon: RefreshCw },
+  { id: "sleep",        label: "Sleep & Recovery",       icon: "/icons/Get Enough Sleep.svg" },
+  { id: "energy",       label: "Energy & Vitality",      icon: "/icons/Exercise Regularly.svg" },
+  { id: "focus",        label: "Focus & Cognition",      icon: "/icons/Read a Good Book.svg" },
+  { id: "inflammation", label: "Reduce Inflammation",    icon: "/icons/Detoxify Your Body.svg" },
+  { id: "longevity",    label: "Longevity & Healthspan", icon: "/icons/Healthy Diet.svg" },
+  { id: "muscle",       label: "Strength & Muscle",      icon: "/icons/Dumbbell Exercises.svg" },
+  { id: "recovery",     label: "Athletic Recovery",      icon: "/icons/Get a Massage.svg" },
 ];
 
 export default function GoalsPage() {
@@ -134,7 +140,17 @@ export default function GoalsPage() {
                     fontFamily: "Inter, sans-serif",
                   }}
                 >
-                  <goal.Icon size={20} strokeWidth={1.75} className="shrink-0" />
+                  <img 
+                    src={goal.icon} 
+                    alt={goal.label}
+                    className="shrink-0"
+                    style={{ 
+                      width: "24px", 
+                      height: "24px",
+                      opacity: isDisabled ? 0.4 : 1,
+                      filter: isSelected ? "brightness(0) saturate(100%) invert(70%) sepia(35%) saturate(1000%) hue-rotate(130deg) brightness(95%) contrast(90%)" : "none"
+                    }}
+                  />
                   <span className="flex-1">{goal.label}</span>
                   {isSelected && (
                     <span

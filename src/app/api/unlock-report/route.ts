@@ -1,5 +1,7 @@
 // POST /api/unlock-report
-// Accepts email + auditId, generates full report, sends email via Resend
+// Accepts email + auditId, generates full report, sends branded email via Resend.
+// Email includes a magic-link "Save to my account" button so the user can sign
+// in and see every past audit on /me with one tap.
 
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -27,7 +29,6 @@ export async function POST(req: NextRequest) {
     const { auditId, email, sessionId } = parsed.data;
     const supabase = getSupabaseServer();
 
-    // Fetch audit
     const { data: audit, error: auditError } = await supabase
       .from("audits")
       .select("*, sessions(*)")
@@ -38,7 +39,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Audit not found" }, { status: 404 });
     }
 
-    // If already unlocked, just return the report
     if (audit.is_unlocked && audit.report_json) {
       return NextResponse.json({
         success: true,
@@ -48,7 +48,6 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Generate full report from rules engine
     const session = audit.sessions;
     const rawInput = session.raw_input;
     const goals = JSON.parse(session.goals) as Goal[];
@@ -57,11 +56,10 @@ export async function POST(req: NextRequest) {
 
     const report = await synthesizeReport(rules, goals);
 
-    // Upsert user
-    await supabase.from("users").upsert({
-      email,
-      created_via: "email_gate",
-    }, { onConflict: "email" });
+    await supabase.from("users").upsert(
+      { email, created_via: "email_gate" },
+      { onConflict: "email" }
+    );
 
     const user = await getCurrentUser();
 
@@ -79,16 +77,15 @@ export async function POST(req: NextRequest) {
       console.error("Update error:", updateError);
     }
 
-    // Track referral if public slug exists
-    // non-blocking referral tracking
     void supabase.from("referrals").insert({
       audit_id: auditId,
       public_slug: audit.public_slug,
       email,
     });
+    void sessionId; // reserved for future session-level tracking
 
-    // Send email via Resend (if configured)
-    await sendReportEmail(email, audit.public_slug, audit.score, report);
+    const signInLink = await generateSignInLink(email, audit.public_slug);
+    await sendReportEmail(email, audit.public_slug, audit.score, report, signInLink);
 
     return NextResponse.json({
       success: true,
@@ -102,36 +99,75 @@ export async function POST(req: NextRequest) {
   }
 }
 
+/**
+ * Ask Supabase to generate a magic-link URL without sending the default email.
+ * Returned action_link is a single-use URL that signs the user in and redirects
+ * to our /auth/callback, which forwards to the protocol page.
+ * Requires SUPABASE_SERVICE_ROLE_KEY; returns null if not configured.
+ */
+async function generateSignInLink(email: string, publicSlug: string): Promise<string | null> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !serviceKey) return null;
+
+  try {
+    const { createClient } = await import("@supabase/supabase-js");
+    const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
+    const origin = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "");
+    const next = `/protocol/${publicSlug}`;
+
+    const { data, error } = await admin.auth.admin.generateLink({
+      type: "magiclink",
+      email,
+      options: {
+        redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}`,
+      },
+    });
+    if (error || !data?.properties?.action_link) {
+      console.error("[unlock-report] generateLink error:", error);
+      return null;
+    }
+    return data.properties.action_link;
+  } catch (err) {
+    console.error("[unlock-report] generateLink threw:", err);
+    return null;
+  }
+}
+
 async function sendReportEmail(
   email: string,
   publicSlug: string,
   score: number,
-  report: ReportSection
+  report: ReportSection,
+  signInLink: string | null
 ) {
   const resendKey = process.env.RESEND_API_KEY;
-  if (!resendKey) return; // Skip if not configured
+  if (!resendKey) return;
 
   try {
     const { Resend } = await import("resend");
     const resend = new Resend(resendKey);
-
     const reportUrl = `${process.env.NEXT_PUBLIC_APP_URL}/protocol/${publicSlug}`;
 
     await resend.emails.send({
       from: "Vyvata <hello@vyvata.com>",
       to: email,
       subject: "Your Vyvata protocol is ready.",
-      html: buildEmailHtml(score, report, reportUrl),
+      html: buildEmailHtml(score, report, reportUrl, signInLink),
     });
   } catch (err) {
     console.error("Email send error:", err);
-    // Non-fatal
   }
 }
 
-function buildEmailHtml(score: number, report: ReportSection, url: string): string {
-  return `
-<!DOCTYPE html>
+function buildEmailHtml(
+  score: number,
+  report: ReportSection,
+  url: string,
+  signInLink: string | null
+): string {
+  const scoreColor = score >= 70 ? "#22c55e" : score >= 50 ? "#f59e0b" : "#ef4444";
+  return `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; background: #0a0a0a; color: #e5e5e5;">
@@ -140,7 +176,7 @@ function buildEmailHtml(score: number, report: ReportSection, url: string): stri
     <p style="color: #888; font-size: 14px; margin: 0 0 32px;">Your AI health protocol</p>
 
     <div style="background: #111; border: 1px solid #222; border-radius: 6px; padding: 20px; margin-bottom: 24px; text-align: center;">
-      <div style="font-size: 48px; font-weight: 800; color: ${score >= 70 ? '#22c55e' : score >= 50 ? '#f59e0b' : '#ef4444'};">${score}</div>
+      <div style="font-size: 48px; font-weight: 800; color: ${scoreColor};">${score}</div>
       <div style="font-size: 14px; color: #888;">Stack Score / 100</div>
     </div>
 
@@ -156,6 +192,13 @@ function buildEmailHtml(score: number, report: ReportSection, url: string): stri
     <div style="text-align: center; margin-top: 32px;">
       <a href="${url}" style="display: inline-block; background: #14B8A6; color: #0B1F3B; padding: 12px 32px; border-radius: 6px; font-weight: 600; font-size: 14px; text-decoration: none;">View Your Protocol →</a>
     </div>
+
+    ${signInLink ? `
+    <div style="margin-top: 28px; padding: 20px; background: rgba(20,184,166,0.06); border: 1px solid rgba(20,184,166,0.2); border-radius: 8px;">
+      <p style="margin: 0 0 10px; font-size: 13px; font-weight: 600; color: #E5F9F4; text-align: center;">Save this to your Vyvata account</p>
+      <p style="margin: 0 0 14px; font-size: 12px; color: #9db6c7; text-align: center; line-height: 1.5;">One tap signs you in. See every protocol you've run, re-audit any time.</p>
+      <p style="text-align: center; margin: 0;"><a href="${signInLink}" style="display: inline-block; background: rgba(20,184,166,0.12); border: 1px solid #14B8A6; color: #14B8A6; padding: 10px 24px; border-radius: 6px; font-weight: 600; font-size: 13px; text-decoration: none;">Save to my account →</a></p>
+    </div>` : ''}
 
     <p style="font-size: 12px; color: #555; text-align: center; margin-top: 24px;">Precision protocols for human optimization. Unsubscribe anytime.</p>
   </div>

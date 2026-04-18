@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import {
   ArrowLeft, Share2, Lock, CheckCircle, XCircle,
   AlertTriangle, Plus, ArrowRight, RefreshCw, Sparkles,
-  Brain, Moon, Footprints, Hourglass,
+  Brain, Moon, Footprints, Hourglass, Stethoscope,
   type LucideIcon,
 } from "lucide-react";
 import type { AuditResult, ReportSection, WorkingItem, WastingItem, FightingItem, MissingItem, RevisedStackItem } from "@/types";
@@ -548,6 +548,13 @@ export default function ProtocolClient({ slug }: { slug: string }) {
     }
   };
 
+  const handleShareWithPractitioner = () => {
+    const url = window.location.href;
+    const body = `Hi — here's my Vyvata supplement protocol (score ${audit?.score}/100). Would you mind taking a look and letting me know what you think?\n\n${url}`;
+    const mailto = `mailto:?subject=${encodeURIComponent("My Vyvata supplement protocol — would love your review")}&body=${encodeURIComponent(body)}`;
+    window.location.href = mailto;
+  };
+
   const handleShare = async () => {
     const url = window.location.href.replace("/protocol/", "/protocol/");
     if (navigator.share) {
@@ -1035,6 +1042,20 @@ export default function ProtocolClient({ slug }: { slug: string }) {
                 Re-audit
               </a>
             </div>
+            <button
+              onClick={handleShareWithPractitioner}
+              className="w-full flex items-center justify-center gap-2 text-sm py-2.5 rounded-lg transition-all"
+              style={{
+                background: "rgba(20,184,166,0.08)",
+                border: "1px solid rgba(20,184,166,0.3)",
+                color: "#14B8A6",
+                fontFamily: "Inter, sans-serif",
+              }}
+              data-testid="button-share-practitioner"
+            >
+              <Stethoscope size={14} />
+              Email this to my practitioner
+            </button>
           </div>
         )}
 

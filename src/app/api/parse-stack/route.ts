@@ -82,15 +82,18 @@ export async function POST(req: NextRequest) {
       .select()
       .single();
 
-    if (auditError) {
+    if (auditError || !auditRow) {
       console.error("Supabase insert error:", auditError);
-      // Still return result even if DB fails (graceful degradation)
+      return NextResponse.json(
+        { error: "Failed to save audit. Please try again." },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({
       sessionId,
-      publicSlug: auditRow?.public_slug || publicSlug,
-      auditId: auditRow?.id,
+      publicSlug: auditRow.public_slug,
+      auditId: auditRow.id,
       score,
       teaser,
       ingredientCount: ingredients.length,

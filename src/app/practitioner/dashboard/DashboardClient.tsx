@@ -563,21 +563,38 @@ export default function PractitionerDashboardClient({
             </h2>
             <div className="flex items-center gap-2">
               {patients.length > 0 && (
-                <button
-                  onClick={() => exportPatientsToCSV(patients, practitioner.name)}
-                  className="flex items-center gap-1.5 text-sm font-semibold px-3.5 py-2 rounded-xl transition-all hover:opacity-90"
-                  style={{
-                    background: "rgba(255,255,255,0.04)",
-                    color: "#14B8A6",
-                    border: "1px solid rgba(20,184,166,0.25)",
-                    fontFamily: "Montserrat, sans-serif",
-                  }}
-                  data-testid="button-export-csv"
-                  title="Export patient list to CSV"
-                >
-                  <Download size={14} />
-                  <span className="hidden sm:inline">Export CSV</span>
-                </button>
+                <>
+                  <button
+                    onClick={() => router.push("/practitioner/analytics")}
+                    className="flex items-center gap-1.5 text-sm font-semibold px-3.5 py-2 rounded-xl transition-all hover:opacity-90"
+                    style={{
+                      background: "rgba(139,92,246,0.12)",
+                      color: "#8B5CF6",
+                      border: "1px solid rgba(139,92,246,0.25)",
+                      fontFamily: "Montserrat, sans-serif",
+                    }}
+                    data-testid="button-analytics"
+                    title="View cohort analytics"
+                  >
+                    <BarChart3 size={14} />
+                    <span className="hidden sm:inline">Analytics</span>
+                  </button>
+                  <button
+                    onClick={() => exportPatientsToCSV(patients, practitioner.name)}
+                    className="flex items-center gap-1.5 text-sm font-semibold px-3.5 py-2 rounded-xl transition-all hover:opacity-90"
+                    style={{
+                      background: "rgba(255,255,255,0.04)",
+                      color: "#14B8A6",
+                      border: "1px solid rgba(20,184,166,0.25)",
+                      fontFamily: "Montserrat, sans-serif",
+                    }}
+                    data-testid="button-export-csv"
+                    title="Export patient list to CSV"
+                  >
+                    <Download size={14} />
+                    <span className="hidden sm:inline">Export CSV</span>
+                  </button>
+                </>
               )}
               <button
                 onClick={() => setShowAdd(true)}

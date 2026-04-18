@@ -1,4 +1,7 @@
-import { createServerClient, createBrowserClient } from "@supabase/ssr";
+// Server-only Supabase Auth helpers. Do NOT import from "use client" files —
+// this module pulls in next/headers which blows up the client bundle.
+// For client components, use supabase-auth-browser.ts instead.
+import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import type { NextRequest, NextResponse } from "next/server";
 
@@ -39,11 +42,6 @@ export function getSupabaseUserMiddleware(req: NextRequest, res: NextResponse) {
       },
     },
   });
-}
-
-/** Browser client for client components ("use client"). */
-export function getSupabaseUserBrowser() {
-  return createBrowserClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 }
 
 /** Convenience: returns the authenticated user or null. */

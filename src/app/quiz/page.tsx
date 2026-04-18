@@ -4,16 +4,13 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft, ArrowRight, Check, ChevronRight,
-  Moon, Zap, Brain, Hourglass, Footprints, Flame,
-  Dumbbell, RefreshCw, Leaf, Shield, Sprout,
-  type LucideIcon,
 } from "lucide-react";
 import { getOrCreateSessionId } from "@/lib/session";
 import { VyvataLogo } from "@/components/VyvataLogo";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-type SingleOption = { type: "single"; key: string; label: string; Icon?: LucideIcon };
-type MultiOption  = { type: "multi";  key: string; label: string; Icon?: LucideIcon };
+type SingleOption = { type: "single"; key: string; label: string; icon?: string };
+type MultiOption  = { type: "multi";  key: string; label: string; icon?: string };
 type ScaleOption  = { type: "scale";  key: string; label: string };
 type TextOption   = { type: "text";   placeholder: string };
 
@@ -177,25 +174,25 @@ const STEPS: QuizStep[] = [
 ];
 
 // ── Options per step ──────────────────────────────────────────────────────────
-const OPTIONS: Record<string, { value: string; label: string; Icon?: LucideIcon }[]> = {
+const OPTIONS: Record<string, { value: string; label: string; icon?: string }[]> = {
   primary_goal: [
-    { value: "sleep",        label: "Better sleep",           Icon: Moon },
-    { value: "energy",       label: "More energy",            Icon: Zap },
-    { value: "focus",        label: "Sharper focus",          Icon: Brain },
-    { value: "longevity",    label: "Longevity & healthspan", Icon: Hourglass },
-    { value: "performance",  label: "Athletic performance",   Icon: Footprints },
-    { value: "inflammation", label: "Less inflammation",      Icon: Flame },
+    { value: "sleep",        label: "Better sleep",           icon: "/icons/Get Enough Sleep.svg" },
+    { value: "energy",       label: "More energy",            icon: "/icons/Exercise Regularly.svg" },
+    { value: "focus",        label: "Sharper focus",          icon: "/icons/Read a Good Book.svg" },
+    { value: "longevity",    label: "Longevity & healthspan", icon: "/icons/Healthy Diet.svg" },
+    { value: "performance",  label: "Athletic performance",   icon: "/icons/Start Running.svg" },
+    { value: "inflammation", label: "Less inflammation",      icon: "/icons/Detoxify Your Body.svg" },
   ],
   secondary_goals: [
-    { value: "sleep",        label: "Sleep quality",      Icon: Moon },
-    { value: "energy",       label: "Sustained energy",   Icon: Zap },
-    { value: "focus",        label: "Mental clarity",     Icon: Brain },
-    { value: "longevity",    label: "Longevity",          Icon: Hourglass },
-    { value: "muscle",       label: "Strength & muscle",  Icon: Dumbbell },
-    { value: "recovery",     label: "Recovery speed",     Icon: RefreshCw },
-    { value: "stress",       label: "Stress resilience",  Icon: Leaf },
-    { value: "immunity",     label: "Immune support",     Icon: Shield },
-    { value: "gut",          label: "Gut health",         Icon: Sprout },
+    { value: "sleep",        label: "Sleep quality",      icon: "/icons/Get Enough Sleep.svg" },
+    { value: "energy",       label: "Sustained energy",   icon: "/icons/Stay Fit.svg" },
+    { value: "focus",        label: "Mental clarity",     icon: "/icons/Read a Good Book.svg" },
+    { value: "longevity",    label: "Longevity",          icon: "/icons/Healthy Diet.svg" },
+    { value: "muscle",       label: "Strength & muscle",  icon: "/icons/Dumbbell Exercises.svg" },
+    { value: "recovery",     label: "Recovery speed",     icon: "/icons/Get a Massage.svg" },
+    { value: "stress",       label: "Stress resilience",  icon: "/icons/Meditate.svg" },
+    { value: "immunity",     label: "Immune support",     icon: "/icons/Vitamins.svg" },
+    { value: "gut",          label: "Gut health",         icon: "/icons/Eat Healthy Food.svg" },
   ],
   sleep_hours: [
     { value: "under5",  label: "Under 5 hours" },
@@ -562,8 +559,8 @@ export default function QuizPage() {
                     }}
                     data-testid={`option-${opt.value}`}
                   >
-                    {opt.Icon && (
-                      <opt.Icon size={18} strokeWidth={1.75} className="w-7 shrink-0" style={{ color: selected ? "#14B8A6" : "#7A90A8" }} />
+                    {opt.icon && (
+                      <img src={opt.icon} alt="" className="w-6 h-6 shrink-0" style={{ filter: selected ? "brightness(0) saturate(100%) invert(70%) sepia(35%) saturate(1000%) hue-rotate(130deg) brightness(95%) contrast(90%)" : "brightness(0.8)" }} />
                     )}
                     <span className="flex-1 text-sm font-medium">{opt.label}</span>
                     <div
@@ -602,8 +599,8 @@ export default function QuizPage() {
                     }}
                     data-testid={`multi-${opt.value}`}
                   >
-                    {opt.Icon && (
-                      <opt.Icon size={18} strokeWidth={1.75} className="w-7 shrink-0" style={{ color: selected ? "#14B8A6" : "#7A90A8" }} />
+                    {opt.icon && (
+                      <img src={opt.icon} alt="" className="w-6 h-6 shrink-0" style={{ filter: selected ? "brightness(0) saturate(100%) invert(70%) sepia(35%) saturate(1000%) hue-rotate(130deg) brightness(95%) contrast(90%)" : "brightness(0.8)" }} />
                     )}
                     <span className="flex-1 text-sm font-medium">{opt.label}</span>
                     <div
