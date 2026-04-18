@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Box, RefreshCw, Sparkles, Zap } from "lucide-react";
+import { ArrowLeft, Award, Box, RefreshCw, Sparkles, Zap } from "lucide-react";
 import { VyvataLogo } from "@/components/VyvataLogo";
 
 interface ScoreRow {
@@ -55,6 +55,9 @@ export default function AdminProductsClient() {
   const [error, setError] = useState("");
   const [scoringId, setScoringId] = useState<string | null>(null);
   const [scoringAll, setScoringAll] = useState(false);
+  const [syncingId, setSyncingId] = useState<string | null>(null);
+  const [syncingAll, setSyncingAll] = useState(false);
+  const [syncResult, setSyncResult] = useState<string | null>(null);
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -99,6 +102,45 @@ export default function AdminProductsClient() {
     }
     setScoringAll(false);
     await fetchProducts();
+  };
+
+  const syncCerts = async (p: ProductRow) => {
+    setSyncingId(p.id);
+    setSyncResult(null);
+    try {
+      const res = await fetch("/api/admin/sync-certifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId: p.id, brand: p.brand, productName: p.name }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Sync failed");
+      setSyncResult(
+        `${p.brand} · ${p.name}: ${data.certificationsAdded ?? 0} added, ${data.certificationsFound ?? 0} found`
+      );
+      await fetchProducts();
+    } catch (e) {
+      setSyncResult(e instanceof Error ? e.message : "Sync failed");
+    } finally {
+      setSyncingId(null);
+    }
+  };
+
+  const syncAllCerts = async () => {
+    if (!confirm(`Sync certifications for all ${products.length} products? This hits third-party certification directories.`)) return;
+    setSyncingAll(true);
+    setSyncResult(null);
+    try {
+      const res = await fetch("/api/admin/sync-certifications", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Sync failed");
+      setSyncResult(data.message ?? `Synced ${data.synced} products, ${data.errors} errors`);
+      await fetchProducts();
+    } catch (e) {
+      setSyncResult(e instanceof Error ? e.message : "Sync failed");
+    } finally {
+      setSyncingAll(false);
+    }
   };
 
   const unscoredCount = products.filter((p) => !p.current_score).length;
@@ -154,6 +196,19 @@ export default function AdminProductsClient() {
               Score all unscored ({unscoredCount})
             </button>
           )}
+          <button
+            onClick={syncAllCerts}
+            disabled={syncingAll || products.length === 0}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
+            style={{
+              background: "rgba(129,140,248,0.1)",
+              border: "1px solid rgba(129,140,248,0.3)",
+              color: "#818CF8",
+            }}
+          >
+            {syncingAll ? <RefreshCw size={12} className="animate-spin" /> : <Award size={12} />}
+            Sync all certs
+          </button>
         </div>
       </header>
 
@@ -181,6 +236,22 @@ export default function AdminProductsClient() {
             }}
           >
             {error}
+          </div>
+        )}
+
+        {syncResult && (
+          <div
+            className="rounded-xl px-4 py-3 text-sm flex items-center justify-between gap-3"
+            style={{
+              background: "rgba(129,140,248,0.08)",
+              border: "1px solid rgba(129,140,248,0.25)",
+              color: "#C7D2FE",
+            }}
+          >
+            <span>{syncResult}</span>
+            <button onClick={() => setSyncResult(null)} style={{ color: "#818CF8" }}>
+              Dismiss
+            </button>
           </div>
         )}
 
@@ -259,31 +330,53 @@ export default function AdminProductsClient() {
                     )}
                   </div>
 
-                  {/* Action */}
-                  <button
-                    onClick={() => scoreOne(p.id)}
-                    disabled={scoringId === p.id}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold disabled:opacity-50"
-                    style={{
-                      background: score ? "rgba(255,255,255,0.05)" : "rgba(20,184,166,0.12)",
-                      border: score ? "1px solid rgba(201,214,223,0.1)" : "1px solid rgba(20,184,166,0.3)",
-                      color: score ? "#C9D6DF" : "#14B8A6",
-                    }}
-                  >
-                    {scoringId === p.id ? (
-                      <>
-                        <RefreshCw size={12} className="animate-spin" /> Scoring…
-                      </>
-                    ) : score ? (
-                      <>
-                        <RefreshCw size={12} /> Rescore
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles size={12} /> Score
-                      </>
-                    )}
-                  </button>
+                  {/* Actions */}
+                  <div className="flex flex-col gap-1.5 shrink-0">
+                    <button
+                      onClick={() => scoreOne(p.id)}
+                      disabled={scoringId === p.id}
+                      className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
+                      style={{
+                        background: score ? "rgba(255,255,255,0.05)" : "rgba(20,184,166,0.12)",
+                        border: score ? "1px solid rgba(201,214,223,0.1)" : "1px solid rgba(20,184,166,0.3)",
+                        color: score ? "#C9D6DF" : "#14B8A6",
+                      }}
+                    >
+                      {scoringId === p.id ? (
+                        <>
+                          <RefreshCw size={12} className="animate-spin" /> Scoring…
+                        </>
+                      ) : score ? (
+                        <>
+                          <RefreshCw size={12} /> Rescore
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles size={12} /> Score
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => syncCerts(p)}
+                      disabled={syncingId === p.id}
+                      className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
+                      style={{
+                        background: "rgba(129,140,248,0.1)",
+                        border: "1px solid rgba(129,140,248,0.25)",
+                        color: "#818CF8",
+                      }}
+                    >
+                      {syncingId === p.id ? (
+                        <>
+                          <RefreshCw size={12} className="animate-spin" /> Syncing…
+                        </>
+                      ) : (
+                        <>
+                          <Award size={12} /> Sync certs
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
               );
             })}
