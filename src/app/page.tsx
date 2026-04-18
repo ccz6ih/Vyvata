@@ -82,7 +82,7 @@ export default function LandingPage() {
         <div className="hidden md:flex items-center gap-6 text-sm" style={{ color: "#C9D6DF" }}>
           <a href="#how" className="hover:text-white transition-colors">How it works</a>
           <a href="#protocols" className="hover:text-white transition-colors">Protocols</a>
-          <a href="#practitioners" className="hover:text-white transition-colors">Practitioners</a>
+          <a href="/practitioner" className="hover:text-white transition-colors">Practitioners</a>
           <AuthNavLink />
           <a
             href="/practitioner"
