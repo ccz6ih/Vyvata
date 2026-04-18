@@ -18,6 +18,12 @@ const BodySchema = z.object({
   sessionId: z.string(),
 });
 
+function getAppOrigin(req: NextRequest): string {
+  const env = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (env && env !== "undefined") return env.replace(/\/$/, "");
+  return req.nextUrl.origin;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -27,6 +33,7 @@ export async function POST(req: NextRequest) {
     }
 
     const { auditId, email, sessionId } = parsed.data;
+    const origin = getAppOrigin(req);
     const supabase = getSupabaseServer();
 
     const { data: audit, error: auditError } = await supabase
@@ -84,8 +91,8 @@ export async function POST(req: NextRequest) {
     });
     void sessionId; // reserved for future session-level tracking
 
-    const signInLink = await generateSignInLink(email, audit.public_slug);
-    await sendReportEmail(email, audit.public_slug, audit.score, report, signInLink);
+    const signInLink = await generateSignInLink(origin, email, audit.public_slug);
+    await sendReportEmail(origin, email, audit.public_slug, audit.score, report, signInLink);
 
     return NextResponse.json({
       success: true,
@@ -105,7 +112,11 @@ export async function POST(req: NextRequest) {
  * to our /auth/callback, which forwards to the protocol page.
  * Requires SUPABASE_SERVICE_ROLE_KEY; returns null if not configured.
  */
-async function generateSignInLink(email: string, publicSlug: string): Promise<string | null> {
+async function generateSignInLink(
+  origin: string,
+  email: string,
+  publicSlug: string
+): Promise<string | null> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !serviceKey) return null;
@@ -113,7 +124,6 @@ async function generateSignInLink(email: string, publicSlug: string): Promise<st
   try {
     const { createClient } = await import("@supabase/supabase-js");
     const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
-    const origin = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "");
     const next = `/protocol/${publicSlug}`;
 
     const { data, error } = await admin.auth.admin.generateLink({
@@ -135,6 +145,7 @@ async function generateSignInLink(email: string, publicSlug: string): Promise<st
 }
 
 async function sendReportEmail(
+  origin: string,
   email: string,
   publicSlug: string,
   score: number,
@@ -147,7 +158,7 @@ async function sendReportEmail(
   try {
     const { Resend } = await import("resend");
     const resend = new Resend(resendKey);
-    const reportUrl = `${process.env.NEXT_PUBLIC_APP_URL}/protocol/${publicSlug}`;
+    const reportUrl = `${origin}/protocol/${publicSlug}`;
 
     await resend.emails.send({
       from: "Vyvata <hello@vyvata.com>",

@@ -6,7 +6,9 @@ import {
   CheckCircle2, XCircle, Clock, ChevronDown, ChevronUp,
   RefreshCw, Users, ClipboardList, ShieldCheck, AlertTriangle,
   ExternalLink, Mail, Building2, Stethoscope, Globe, User, LogOut,
+  BarChart3,
 } from "lucide-react";
+import Link from "next/link";
 import { VyvataLogo } from "@/components/VyvataLogo";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -487,6 +489,14 @@ export default function AdminClient() {
           <span className="text-xs" style={{ color: "#4a6080" }}>
             Refreshed {timeAgo(lastRefresh.toISOString())}
           </span>
+          <Link
+            href="/admin/analytics"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+            style={{ background: "rgba(20,184,166,0.08)", border: "1px solid rgba(20,184,166,0.2)", color: "#14B8A6" }}
+          >
+            <BarChart3 size={12} />
+            Analytics
+          </Link>
           <button
             onClick={fetchData}
             disabled={loading}
