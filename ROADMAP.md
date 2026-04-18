@@ -27,7 +27,7 @@ Last updated: 2026-04-18 (Phase 2 complete).
 - **Ingredients DB** — **152 records** in [src/lib/ingredients-db.ts](src/lib/ingredients-db.ts) (vitamins, minerals, adaptogens, nootropics, longevity, medicinal mushrooms, amino acids, etc.) with aliases, evidence tier, dose ranges, interactions, synergies
 - **Rules engine** — [src/lib/rules-engine.ts](src/lib/rules-engine.ts) deterministic: matches, interactions (with severity classification), redundancies, dose checks, timing, goal gaps, synergies detection, cycling recommendations
 - **Stack parser** — [src/lib/stack-parser.ts](src/lib/stack-parser.ts) freeform text → structured ingredients + dose + unit
-- **LLM synthesis** — [src/lib/llm-synthesizer.ts](src/lib/llm-synthesizer.ts) OpenAI `gpt-4o` with compliance-enforced system prompt; deterministic fallback when key missing
+- **LLM synthesis** — [src/lib/llm-synthesizer.ts](src/lib/llm-synthesizer.ts) Anthropic Claude (default `claude-opus-4-7`, overridable via `ANTHROPIC_MODEL`) with compliance-enforced system prompt and prompt caching on the system block; deterministic fallback when key missing
 - **Protocol templates** — [src/lib/protocol-templates.ts](src/lib/protocol-templates.ts) 5 canonical protocols (cognitive performance, deep sleep, athletic, longevity, immune support) with evidence summaries
 - **Evidence library** — [src/lib/evidence-summaries.ts](src/lib/evidence-summaries.ts) 10 clinical summaries (200-300 words, PubMed citations) for top ingredients, interactions, and protocols
 
@@ -35,7 +35,7 @@ Last updated: 2026-04-18 (Phase 2 complete).
 | Service | Wired | Fallback | Status |
 |---|---|---|---|
 | Supabase | ✅ | ❌ throws if missing | Critical, working |
-| OpenAI | ✅ | ✅ deterministic report | **Currently on fallback** — no `OPENAI_API_KEY` set |
+| Anthropic Claude | ✅ | ✅ deterministic report | **Currently on fallback** — no `ANTHROPIC_API_KEY` set |
 | Resend | ✅ | ✅ silent skip | Working if key set |
 
 ### Auth
@@ -67,7 +67,7 @@ Vyvata has four specialized AI agents to accelerate development and maintain qua
 ## 2. What's missing or broken
 
 ### Critical gaps
-- **OpenAI is off** — deterministic fallback works but reports are less personalized. Set `OPENAI_API_KEY` and measure quality lift.
+- **Claude LLM is off** — deterministic fallback works but reports are less personalized. Set `ANTHROPIC_API_KEY` and measure quality lift.
 - **Admin secret in query string** — logged in browser history and server logs. Move to header-based auth or a dedicated admin login.
 - **No rate limiting** on `/api/practitioner/auth` — brute-force risk against 4-4 access codes.
 - ~~`increment_patient_count` RPC missing~~ → **Fixed in Phase 0** by recomputing `patient_count` from `patient_links` on add/archive.
@@ -124,7 +124,7 @@ Ship-ready hardening. Code-side shipped; three items below need your action.
 
 **Needs your action** (external to repo):
 - [ ] Add `VYVATA_ADMIN_SECRET` to `.env.local` — admin console returns 401 until this is set. Generate with `openssl rand -hex 32`.
-- [ ] Set `OPENAI_API_KEY` — enables GPT-4o synthesis path; without it the deterministic fallback runs. Sample 5–10 reports both ways to confirm quality lift before committing to the cost.
+- [ ] Set `ANTHROPIC_API_KEY` — enables Claude synthesis path; without it the deterministic fallback runs. Sample 5–10 reports both ways to confirm quality lift before committing to the cost.
 - [ ] Verify Resend sender domain — `hello@vyvata.com` is used in approval/recovery emails; check SPF/DKIM/DMARC are green in the Resend dashboard so mail doesn't go to spam.
 - [ ] Add Sentry (or similar) runtime error reporting — create project, set `SENTRY_DSN`, wrap app with SDK. Deferred until real traffic.
 
@@ -143,14 +143,15 @@ Make the engine defensible.
 - Protocols: 5 canonical templates seeded, each with 4-7 ingredients, evidence summaries, dosing rationale, contraindications, monitoring advice
 - Evidence library: 10 clinical summaries written (7 ingredients, 2 interactions, 1 protocol)
 
-### Phase 3 — B2B growth (4–6 weeks)
-Monetization and retention for practitioners.
+### Phase 3 — B2B growth 🟡 In Progress (2026-04-18)
+Monetization and retention for practitioners.  
+**Execution Plan:** [docs/PHASE-3-PLAN.md](docs/PHASE-3-PLAN.md)
 
-- [ ] Patient notes, status transitions, CSV export
-- [ ] PDF export of protocol reports (for patient handoff)
-- [ ] Cohort analytics: distribution of goals/protocols/scores across a practitioner's panel
-- [ ] Referral loop: `referrals` table, share links, attribution, credits
-- [ ] Practitioner billing (Stripe) — tiered by patient count
+- [ ] Patient notes, status transitions, CSV export (Week 1-2)
+- [ ] PDF export of protocol reports (for patient handoff) (Week 2-3)
+- [ ] Cohort analytics: distribution of goals/protocols/scores across a practitioner's panel (Week 3-4)
+- [ ] Referral loop: `referrals` table, share links, attribution, credits (Week 4-5)
+- [ ] Practitioner billing (Stripe) — tiered by patient count (Week 5-6)
 
 ### Phase 4 — Outcomes & data moat (6–12 weeks)
 The thing that makes Vyvata defensible long-term.
@@ -163,7 +164,7 @@ The thing that makes Vyvata defensible long-term.
 ### Phase 5 — Compliance & scale
 Required before volume.
 
-- [ ] HIPAA review if health data crosses threshold (BAA with Supabase, Resend, OpenAI; audit logs)
+- [ ] HIPAA review if health data crosses threshold (BAA with Supabase, Resend, Anthropic; audit logs)
 - [ ] End-to-end test suite (Playwright) covering the B2C + B2B golden paths
 - [ ] Load testing on `/api/parse-stack` and `/api/unlock-report`
 - [ ] Observability: structured logs, per-route latency, LLM cost tracking
@@ -178,5 +179,5 @@ Required before volume.
 
 ## Immediate next actions (my recommendation)
 1. Phase 0 housekeeping — few hours, unblocks everything
-2. Turn on OpenAI with a small test sample to verify report quality is materially better than fallback
+2. Turn on Anthropic Claude with a small test sample to verify report quality is materially better than fallback
 3. Decide Phase 1 vs Phase 2 priority based on whether next traffic is B2C (Phase 2 matters) or practitioner pilots (Phase 1 security matters more)

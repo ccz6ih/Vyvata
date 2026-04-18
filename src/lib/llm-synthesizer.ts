@@ -1,7 +1,8 @@
 // llm-synthesizer.ts
-// GPT-4o synthesis with embedded Compliance Filter agent.
-// Falls back to deterministic buildFullReport() if OpenAI is unavailable.
+// Claude synthesis with embedded Compliance Filter agent.
+// Falls back to deterministic buildFullReport() if Anthropic is unavailable.
 
+import Anthropic from "@anthropic-ai/sdk";
 import type { Goal, ReportSection, WorkingItem, WastingItem, FightingItem, MissingItem, RevisedStackItem } from "@/types";
 import type { RulesResult } from "@/lib/rules-engine";
 import type { IngredientRecord } from "@/lib/ingredients-db";
@@ -277,65 +278,65 @@ export function buildFullReport(
 
 // ─── Main export ─────────────────────────────────────────────────────────────
 
+function extractJsonObject(text: string): string | null {
+  const first = text.indexOf("{");
+  const last = text.lastIndexOf("}");
+  if (first === -1 || last === -1 || last <= first) return null;
+  return text.slice(first, last + 1);
+}
+
 export async function synthesizeReport(
   rules: RulesResult,
   goals: Goal[]
 ): Promise<ReportSection> {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const model = process.env.ANTHROPIC_MODEL || "claude-opus-4-7";
 
-  // No API key → deterministic fallback immediately
   if (!apiKey) {
-    console.log("[llm-synthesizer] No OPENAI_API_KEY — using deterministic fallback");
+    console.log("[llm-synthesizer] No ANTHROPIC_API_KEY — using deterministic fallback");
     return buildFullReport(rules, goals);
   }
 
   try {
+    const client = new Anthropic({ apiKey });
+
     const userMessage = `Here is the rules-engine analysis of this user's supplement stack. Their goals are: ${goals.join(", ")}.
 
-Synthesize a complete protocol report in the JSON format specified. Apply the Compliance Filter to all output — no disease claims.
+Synthesize a complete protocol report in the JSON format specified. Apply the Compliance Filter to all output — no disease claims. Respond with ONLY the JSON object, no preamble.
 
 Rules engine data:
 ${serializeRulesForLLM(rules, goals)}`;
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o",
-        response_format: { type: "json_object" },
-        temperature: 0.4,
-        max_tokens: 2000,
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userMessage },
-        ],
-      }),
+    const response = await client.messages.create({
+      model,
+      max_tokens: 4000,
+      system: [
+        {
+          type: "text",
+          text: SYSTEM_PROMPT,
+          cache_control: { type: "ephemeral" },
+        },
+      ],
+      messages: [{ role: "user", content: userMessage }],
     });
 
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`OpenAI API error ${response.status}: ${errText}`);
+    const textBlock = response.content.find((b) => b.type === "text");
+    if (!textBlock || textBlock.type !== "text") {
+      throw new Error("No text block in Claude response");
     }
 
-    const data = await response.json() as {
-      choices: Array<{
-        message: { content: string };
-      }>;
-    };
+    const jsonText = extractJsonObject(textBlock.text);
+    if (!jsonText) throw new Error("No JSON object found in response");
 
-    const raw = data.choices?.[0]?.message?.content;
-    if (!raw) throw new Error("Empty response from OpenAI");
-
-    const parsed = JSON.parse(raw) as unknown;
-
+    const parsed = JSON.parse(jsonText) as unknown;
     if (!isValidReportSection(parsed)) {
       throw new Error("LLM output did not match ReportSection shape");
     }
 
-    console.log("[llm-synthesizer] GPT-4o synthesis successful");
+    const cacheHit = response.usage.cache_read_input_tokens ?? 0;
+    console.log(
+      `[llm-synthesizer] ${model} synthesis successful (cache: ${cacheHit} tokens read)`
+    );
     return parsed;
   } catch (err) {
     console.error("[llm-synthesizer] LLM call failed, falling back to deterministic:", err);

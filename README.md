@@ -14,7 +14,7 @@ See [AGENTS-INDEX.md](AGENTS-INDEX.md) for specialized AI agents that accelerate
 - **Frontend:** Next.js 16 (App Router) + Tailwind CSS v4 + TypeScript + React 19
 - **Backend:** Next.js API Routes (Edge + Node)
 - **Database:** Supabase (PostgreSQL)
-- **AI:** OpenAI GPT-4o (optional; deterministic fallback if no key)
+- **AI:** Anthropic Claude (optional; deterministic fallback if no key). Default `claude-opus-4-7`; override via `ANTHROPIC_MODEL`.
 - **Email:** Resend (optional; silently skipped if no key)
 - **Icons:** lucide-react
 - **Deploy:** Vercel
@@ -117,7 +117,8 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 Optional:
 ```env
-OPENAI_API_KEY=           # Falls back to deterministic report synthesis if unset
+ANTHROPIC_API_KEY=        # Falls back to deterministic report synthesis if unset
+ANTHROPIC_MODEL=          # Default: claude-opus-4-7. Override to claude-sonnet-4-6 for lower cost.
 RESEND_API_KEY=           # Emails silently skipped if unset
 VYVATA_ADMIN_SECRET=      # Gate for /admin and /api/admin/*
 ```
