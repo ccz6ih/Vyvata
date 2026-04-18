@@ -435,7 +435,8 @@ export default function LandingPage() {
                   </li>
                 ))}
               </ul>
-              <button
+              <a
+                href="/practitioner/register"
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-lg font-semibold text-sm transition-all"
                 style={{
                   border: "1px solid rgba(20, 184, 166, 0.4)",
@@ -444,9 +445,9 @@ export default function LandingPage() {
                   fontFamily: "Montserrat, sans-serif",
                 }}
               >
-                Learn about the practitioner program
+                Apply for the practitioner program
                 <ArrowRight size={14} />
-              </button>
+              </a>
             </div>
 
             {/* Visual */}
