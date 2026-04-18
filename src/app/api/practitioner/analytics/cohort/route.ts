@@ -1,201 +1,176 @@
+// GET /api/practitioner/analytics/cohort
+// Cohort-level analytics for a practitioner's patient panel.
+// Fetches patient_links, then bulk-loads the related sessions/audits/quiz
+// rows by ID — avoids relying on PostgREST FK inference (which wasn't set
+// up between patient_links and sessions) and keeps the query predictable.
+
 import { NextResponse } from "next/server";
 import { getPractitionerSession } from "@/lib/practitioner-auth";
 import { getSupabaseServer } from "@/lib/supabase";
+import type { Goal, ParsedIngredient, ReportSection } from "@/types";
 
 export const dynamic = "force-dynamic";
 
+const PROTOCOL_LABELS: Record<string, string> = {
+  "cognitive-performance": "Cognitive Performance",
+  "deep-sleep-recovery":   "Deep Sleep & Recovery",
+  "athletic-performance":  "Athletic Performance",
+  "longevity-foundation":  "Longevity Foundation",
+  "immune-support":        "Immune Support",
+};
+
+const EMPTY = {
+  totalPatients: 0,
+  activePatients: 0,
+  goalDistribution: [] as Array<{ goal: string; count: number }>,
+  protocolDistribution: [] as Array<{ protocol: string; count: number }>,
+  stackComplexity: [] as Array<{ range: string; count: number }>,
+  interactionStats: { withInteractions: 0, withoutInteractions: 0 },
+  evidenceTiers: [] as Array<{ tier: string; count: number }>,
+  trendingIngredients: [] as Array<{ ingredient: string; count: number }>,
+};
+
+interface PatientLink {
+  id: string;
+  status: string;
+  session_id: string | null;
+  audit_id: string | null;
+  quiz_response_id: string | null;
+}
+interface AuditRow { id: string; report_json: string | null }
+interface SessionRow { id: string; goals: string | null; ingredients: string | null }
+interface QuizRow { id: string; assigned_protocol_slug: string | null }
+
+function safeParse<T>(s: string | null | undefined, fallback: T): T {
+  if (!s) return fallback;
+  try { return JSON.parse(s) as T; } catch { return fallback; }
+}
+
+function titleCase(s: string): string {
+  return s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export async function GET() {
   try {
-    // Auth check
     const session = await getPractitionerSession();
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const supabase = getSupabaseServer();
 
-    // Fetch all patient_links for this practitioner with related data
-    const { data: patients, error } = await supabase
+    const { data: linksRaw, error: linkErr } = await supabase
       .from("patient_links")
-      .select(`
-        id,
-        patient_name,
-        status,
-        created_at,
-        audits!inner(
-          id,
-          score,
-          report,
-          created_at
-        ),
-        quiz_responses!inner(
-          id,
-          answers,
-          assigned_protocol_slug,
-          created_at
-        ),
-        sessions!inner(
-          id,
-          goals,
-          current_stack,
-          created_at
-        )
-      `)
-      .eq("practitioner_id", session.id)
-      .order("created_at", { ascending: false });
+      .select("id, status, session_id, audit_id, quiz_response_id")
+      .eq("practitioner_id", session.id);
 
-    if (error) {
-      console.error("Error fetching patient data:", error);
-      return NextResponse.json({ error: "Failed to fetch patient data" }, { status: 500 });
+    if (linkErr) {
+      console.error("cohort: patient_links fetch error:", linkErr);
+      return NextResponse.json({ error: "Failed to fetch patients" }, { status: 500 });
     }
 
-    if (!patients || patients.length === 0) {
-      // Return empty analytics for practitioners with no patients
-      return NextResponse.json({
-        totalPatients: 0,
-        activePatients: 0,
-        goalDistribution: [],
-        protocolDistribution: [],
-        stackComplexity: [],
-        interactionStats: {
-          withInteractions: 0,
-          withoutInteractions: 0,
-        },
-        evidenceTiers: [],
-        trendingIngredients: [],
-      });
-    }
+    const links = (linksRaw ?? []) as PatientLink[];
+    if (links.length === 0) return NextResponse.json(EMPTY);
 
-    // Calculate analytics
-    const totalPatients = patients.length;
-    const activePatients = patients.filter((p) => p.status === "active").length;
+    const sessionIds = [...new Set(links.map(l => l.session_id).filter(Boolean))] as string[];
+    const auditIds   = [...new Set(links.map(l => l.audit_id).filter(Boolean))] as string[];
+    const quizIds    = [...new Set(links.map(l => l.quiz_response_id).filter(Boolean))] as string[];
 
-    // Goal distribution
+    const [sessionsRes, auditsRes, quizzesRes] = await Promise.all([
+      sessionIds.length
+        ? supabase.from("sessions").select("id, goals, ingredients").in("id", sessionIds)
+        : Promise.resolve({ data: [] as SessionRow[] }),
+      auditIds.length
+        ? supabase.from("audits").select("id, report_json").in("id", auditIds)
+        : Promise.resolve({ data: [] as AuditRow[] }),
+      quizIds.length
+        ? supabase.from("quiz_responses").select("id, assigned_protocol_slug").in("id", quizIds)
+        : Promise.resolve({ data: [] as QuizRow[] }),
+    ]);
+
+    const sessionById = new Map<string, SessionRow>();
+    ((sessionsRes.data ?? []) as SessionRow[]).forEach(s => sessionById.set(s.id, s));
+    const auditById = new Map<string, AuditRow>();
+    ((auditsRes.data ?? []) as AuditRow[]).forEach(a => auditById.set(a.id, a));
+    const quizById = new Map<string, QuizRow>();
+    ((quizzesRes.data ?? []) as QuizRow[]).forEach(q => quizById.set(q.id, q));
+
+    const totalPatients = links.length;
+    const activePatients = links.filter(l => l.status !== "archived").length;
+
+    // Goal distribution (sessions.goals is a JSON-string array of Goal enum values)
     const goalCounts = new Map<string, number>();
-    patients.forEach((patient) => {
-      const session = patient.sessions?.[0];
-      if (session?.goals && Array.isArray(session.goals)) {
-        session.goals.forEach((goal: string) => {
-          goalCounts.set(goal, (goalCounts.get(goal) || 0) + 1);
-        });
-      }
+    links.forEach(l => {
+      const s = l.session_id ? sessionById.get(l.session_id) : null;
+      const goals = safeParse<Goal[]>(s?.goals, []);
+      goals.forEach(g => goalCounts.set(g, (goalCounts.get(g) ?? 0) + 1));
     });
-
     const goalDistribution = Array.from(goalCounts.entries())
-      .map(([goal, count]) => ({
-        goal: goal.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
-        count,
-      }))
+      .map(([goal, count]) => ({ goal: titleCase(goal), count }))
       .sort((a, b) => b.count - a.count);
 
-    // Protocol distribution
-    const protocolCounts = new Map<string, number>();
-    patients.forEach((patient) => {
-      const quiz = patient.quiz_responses?.[0];
-      if (quiz?.assigned_protocol_slug) {
-        const slug = quiz.assigned_protocol_slug;
-        protocolCounts.set(slug, (protocolCounts.get(slug) || 0) + 1);
+    // Protocol distribution (from matched quiz protocol)
+    const protoCounts = new Map<string, number>();
+    links.forEach(l => {
+      const q = l.quiz_response_id ? quizById.get(l.quiz_response_id) : null;
+      if (q?.assigned_protocol_slug) {
+        protoCounts.set(q.assigned_protocol_slug, (protoCounts.get(q.assigned_protocol_slug) ?? 0) + 1);
       }
     });
-
-    const PROTOCOL_LABELS: Record<string, string> = {
-      "cognitive-performance": "Cognitive Performance",
-      "deep-sleep-recovery": "Deep Sleep & Recovery",
-      "athletic-performance": "Athletic Performance",
-      "longevity-foundation": "Longevity Foundation",
-    };
-
-    const protocolDistribution = Array.from(protocolCounts.entries())
-      .map(([slug, count]) => ({
-        protocol: PROTOCOL_LABELS[slug] || slug,
-        count,
-      }))
+    const protocolDistribution = Array.from(protoCounts.entries())
+      .map(([slug, count]) => ({ protocol: PROTOCOL_LABELS[slug] ?? slug, count }))
       .sort((a, b) => b.count - a.count);
 
-    // Stack complexity (ingredient counts)
-    const complexityCounts = new Map<string, number>();
-    patients.forEach((patient) => {
-      const session = patient.sessions?.[0];
-      if (session?.current_stack && Array.isArray(session.current_stack)) {
-        const ingredientCount = session.current_stack.length;
-        let bucket = "0-5";
-        if (ingredientCount >= 20) bucket = "20+";
-        else if (ingredientCount >= 15) bucket = "15-19";
-        else if (ingredientCount >= 10) bucket = "10-14";
-        else if (ingredientCount >= 6) bucket = "6-9";
-
-        complexityCounts.set(bucket, (complexityCounts.get(bucket) || 0) + 1);
-      }
+    // Stack complexity (bucket patient ingredient counts)
+    const bucketCounts = new Map<string, number>();
+    const bucket = (n: number) =>
+      n >= 20 ? "20+" : n >= 15 ? "15-19" : n >= 10 ? "10-14" : n >= 6 ? "6-9" : "0-5";
+    links.forEach(l => {
+      const s = l.session_id ? sessionById.get(l.session_id) : null;
+      const ingredients = safeParse<ParsedIngredient[]>(s?.ingredients, []);
+      const b = bucket(ingredients.length);
+      bucketCounts.set(b, (bucketCounts.get(b) ?? 0) + 1);
     });
-
-    const stackComplexity = ["0-5", "6-9", "10-14", "15-19", "20+"].map((bucket) => ({
-      range: bucket,
-      count: complexityCounts.get(bucket) || 0,
+    const stackComplexity = ["0-5", "6-9", "10-14", "15-19", "20+"].map(range => ({
+      range,
+      count: bucketCounts.get(range) ?? 0,
     }));
 
-    // Interaction stats
+    // Interaction stats + evidence tiers (from audits.report_json, ReportSection shape)
     let withInteractions = 0;
     let withoutInteractions = 0;
-    patients.forEach((patient) => {
-      const audit = patient.audits?.[0];
-      if (audit?.report) {
-        try {
-          const report = typeof audit.report === "string" ? JSON.parse(audit.report) : audit.report;
-          const hasInteractions =
-            report.interactions?.potential_interactions?.length > 0 ||
-            report.interactions?.fighting_pairs?.length > 0;
-          if (hasInteractions) {
-            withInteractions++;
-          } else {
-            withoutInteractions++;
-          }
-        } catch {
-          withoutInteractions++;
-        }
-      }
-    });
+    const evidence = { strong: 0, moderate: 0, weak: 0, none: 0 };
+    links.forEach(l => {
+      const a = l.audit_id ? auditById.get(l.audit_id) : null;
+      if (!a?.report_json) return;
+      const report = safeParse<ReportSection | null>(a.report_json, null);
+      if (!report) return;
 
-    // Evidence tiers
-    const evidenceCounts = { strong: 0, moderate: 0, weak: 0 };
-    patients.forEach((patient) => {
-      const audit = patient.audits?.[0];
-      if (audit?.report) {
-        try {
-          const report = typeof audit.report === "string" ? JSON.parse(audit.report) : audit.report;
-          if (report.synergies?.working_well && Array.isArray(report.synergies.working_well)) {
-            report.synergies.working_well.forEach((item: any) => {
-              const tier = item.evidence_tier?.toLowerCase();
-              if (tier === "strong") evidenceCounts.strong++;
-              else if (tier === "moderate") evidenceCounts.moderate++;
-              else evidenceCounts.weak++;
-            });
-          }
-        } catch {}
-      }
-    });
+      if ((report.fighting?.length ?? 0) > 0) withInteractions++;
+      else withoutInteractions++;
 
+      report.working?.forEach(w => {
+        const tier = (w.evidenceTier ?? "none").toLowerCase() as keyof typeof evidence;
+        if (tier in evidence) evidence[tier] += 1;
+      });
+    });
     const evidenceTiers = [
-      { tier: "Strong", count: evidenceCounts.strong },
-      { tier: "Moderate", count: evidenceCounts.moderate },
-      { tier: "Weak", count: evidenceCounts.weak },
+      { tier: "Strong",   count: evidence.strong },
+      { tier: "Moderate", count: evidence.moderate },
+      { tier: "Weak",     count: evidence.weak },
     ];
 
-    // Trending ingredients
-    const ingredientCounts = new Map<string, number>();
-    patients.forEach((patient) => {
-      const session = patient.sessions?.[0];
-      if (session?.current_stack && Array.isArray(session.current_stack)) {
-        session.current_stack.forEach((ingredient: string) => {
-          ingredientCounts.set(ingredient, (ingredientCounts.get(ingredient) || 0) + 1);
-        });
-      }
+    // Trending ingredients across the practitioner's panel
+    const ingCounts = new Map<string, number>();
+    links.forEach(l => {
+      const s = l.session_id ? sessionById.get(l.session_id) : null;
+      const ingredients = safeParse<ParsedIngredient[]>(s?.ingredients, []);
+      ingredients.forEach(i => {
+        if (!i?.name) return;
+        const key = i.name.trim();
+        if (key) ingCounts.set(key, (ingCounts.get(key) ?? 0) + 1);
+      });
     });
-
-    const trendingIngredients = Array.from(ingredientCounts.entries())
-      .map(([ingredient, count]) => ({
-        ingredient: ingredient.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
-        count,
-      }))
+    const trendingIngredients = Array.from(ingCounts.entries())
+      .map(([ingredient, count]) => ({ ingredient: titleCase(ingredient), count }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 10);
 
@@ -205,15 +180,12 @@ export async function GET() {
       goalDistribution,
       protocolDistribution,
       stackComplexity,
-      interactionStats: {
-        withInteractions,
-        withoutInteractions,
-      },
+      interactionStats: { withInteractions, withoutInteractions },
       evidenceTiers,
       trendingIngredients,
     });
-  } catch (error) {
-    console.error("Error generating cohort analytics:", error);
+  } catch (err) {
+    console.error("cohort: unhandled error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
