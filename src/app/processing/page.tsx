@@ -71,6 +71,12 @@ export default function ProcessingPage() {
       .then((data) => {
         setProgress(100);
         sessionStorage.setItem("sr_audit_result", JSON.stringify(data));
+        
+        // Store stack scores if available
+        if (data.stackScores) {
+          sessionStorage.setItem("vv_stack_scores", JSON.stringify(data.stackScores));
+        }
+        
         setTimeout(() => {
           router.push(`/protocol/${data.publicSlug}?new=1`);
         }, 600);

@@ -161,11 +161,35 @@ const STEPS: QuizStep[] = [
       label: "",
     } as unknown as MultiOption,
   },
+
+  // ── Phase 7: Current Supplement Stack (NEW)
+  {
+    id: "supplements_usage",
+    phase: "Your Stack",
+    question: "Are you currently taking any supplements?",
+    subtext: "This helps us analyze your stack quality and identify gaps.",
+    input: {
+      type: "single",
+      key: "supplements_usage",
+      label: "",
+    } as unknown as SingleOption,
+  },
+  {
+    id: "supplements_specific",
+    phase: "Your Stack",
+    question: "Which supplements are you currently taking?",
+    subtext: "Select all that apply. Don't see yours? You can add it in the next step.",
+    input: {
+      type: "multi",
+      key: "supplements_specific",
+      label: "",
+    } as unknown as MultiOption,
+  },
   {
     id: "supplements_current",
-    phase: "Health Context",
-    question: "Are you currently taking any supplements?",
-    subtext: "A quick description — we'll do a full audit after.",
+    phase: "Your Stack",
+    question: "Any other supplements not listed?",
+    subtext: "Enter them here with dosages (optional).",
     input: {
       type: "text",
       placeholder: "e.g. Magnesium 400mg, Vitamin D 5000 IU, Ashwagandha 600mg...",
@@ -271,6 +295,64 @@ const OPTIONS: Record<string, { value: string; label: string; icon?: string }[]>
     { value: "autoimmune",   label: "Autoimmune condition" },
     { value: "none",         label: "None of the above" },
   ],
+  supplements_usage: [
+    { value: "yes", label: "Yes, I take supplements regularly" },
+    { value: "some", label: "Yes, a few occasionally" },
+    { value: "no", label: "No, not currently" },
+  ],
+  // Top 50 most common supplements from our 452-ingredient database
+  supplements_specific: [
+    { value: "Vitamin D", label: "Vitamin D" },
+    { value: "Magnesium", label: "Magnesium" },
+    { value: "Omega-3", label: "Omega-3 / Fish Oil" },
+    { value: "Vitamin C", label: "Vitamin C" },
+    { value: "Zinc", label: "Zinc" },
+    { value: "Creatine", label: "Creatine" },
+    { value: "Ashwagandha", label: "Ashwagandha" },
+    { value: "L-Theanine", label: "L-Theanine" },
+    { value: "Rhodiola Rosea", label: "Rhodiola" },
+    { value: "Bacopa Monnieri", label: "Bacopa" },
+    { value: "Lion's Mane", label: "Lion's Mane" },
+    { value: "Melatonin", label: "Melatonin" },
+    { value: "Curcumin", label: "Curcumin / Turmeric" },
+    { value: "NAC", label: "NAC (N-Acetyl Cysteine)" },
+    { value: "Probiotic", label: "Probiotics" },
+    { value: "Protein Powder", label: "Protein Powder" },
+    { value: "Caffeine", label: "Caffeine" },
+    { value: "Alpha-GPC", label: "Alpha-GPC" },
+    { value: "CoQ10", label: "CoQ10" },
+    { value: "NMN", label: "NMN" },
+    { value: "Resveratrol", label: "Resveratrol" },
+    { value: "Quercetin", label: "Quercetin" },
+    { value: "Vitamin B12", label: "Vitamin B12" },
+    { value: "Vitamin K2", label: "Vitamin K2" },
+    { value: "Collagen", label: "Collagen" },
+    { value: "Electrolytes", label: "Electrolytes" },
+    { value: "GABA", label: "GABA" },
+    { value: "5-HTP", label: "5-HTP" },
+    { value: "Glycine", label: "Glycine" },
+    { value: "Taurine", label: "Taurine" },
+    { value: "Beta-Alanine", label: "Beta-Alanine" },
+    { value: "Citrulline", label: "L-Citrulline" },
+    { value: "Tyrosine", label: "L-Tyrosine" },
+    { value: "Glutamine", label: "L-Glutamine" },
+    { value: "BCAAs", label: "BCAAs" },
+    { value: "Cordyceps", label: "Cordyceps" },
+    { value: "Reishi", label: "Reishi" },
+    { value: "Chaga", label: "Chaga" },
+    { value: "Berberine", label: "Berberine" },
+    { value: "Digestive Enzymes", label: "Digestive Enzymes" },
+    { value: "Vitamin A", label: "Vitamin A" },
+    { value: "Vitamin E", label: "Vitamin E" },
+    { value: "Iron", label: "Iron" },
+    { value: "Calcium", label: "Calcium" },
+    { value: "Selenium", label: "Selenium" },
+    { value: "Iodine", label: "Iodine" },
+    { value: "Chromium", label: "Chromium" },
+    { value: "PQQ", label: "PQQ" },
+    { value: "Spermidine", label: "Spermidine" },
+    { value: "Fisetin", label: "Fisetin" },
+  ],
 };
 
 // ── Scale labels ──────────────────────────────────────────────────────────────
@@ -294,7 +376,7 @@ function matchProtocol(answers: Record<string, unknown>): string {
 }
 
 // ── Phase map ─────────────────────────────────────────────────────────────────
-const PHASES = ["Your Goals", "Sleep", "Energy", "Focus", "Lifestyle", "Health Context"];
+const PHASES = ["Your Goals", "Sleep", "Energy", "Focus", "Lifestyle", "Health Context", "Your Stack"];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Main component
@@ -401,14 +483,28 @@ export default function QuizPage() {
         throw new Error(d.error || "Submission failed");
       }
 
+      const result = await res.json();
+
       // Store quiz context so processing + protocol pages can use it
       sessionStorage.setItem("vv_quiz_answers", JSON.stringify(finalAnswers));
       sessionStorage.setItem("vv_protocol_slug", protocolSlug);
+      
+      // Store stack scores if available
+      if (result.stackScores) {
+        sessionStorage.setItem("vv_stack_scores", JSON.stringify(result.stackScores));
+      }
 
       // If user entered a current stack, pre-fill the processing flow
       const currentSupps = (finalAnswers.supplements_current as string) || "";
-      if (currentSupps.trim()) {
-        sessionStorage.setItem("sr_raw_input", currentSupps);
+      const specificSupps = (finalAnswers.supplements_specific as string[]) || [];
+      
+      if (currentSupps.trim() || specificSupps.length > 0) {
+        // Combine specific + text input
+        const allSupps = specificSupps.length > 0
+          ? specificSupps.join(", ") + (currentSupps.trim() ? `, ${currentSupps}` : "")
+          : currentSupps;
+        
+        sessionStorage.setItem("sr_raw_input", allSupps);
         // Map primary goal to goals array format
         const goals = [
           finalAnswers.primary_goal as string,

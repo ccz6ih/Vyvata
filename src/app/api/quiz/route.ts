@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getSupabaseServer } from "@/lib/supabase";
+import { calculateStackScores } from "@/lib/scoring-engine";
 
 // ── Validation schema ─────────────────────────────────────────────────────────
 const AnswersSchema = z.object({
@@ -31,7 +32,11 @@ const AnswersSchema = z.object({
 
   // Health context
   health_conditions:  z.array(z.string()).optional(),
-  supplements_current:z.string().optional(),
+  
+  // Supplement stack (NEW)
+  supplements_usage:   z.string().optional(),
+  supplements_specific: z.array(z.string()).optional(),
+  supplements_current: z.string().optional(),
 });
 
 const BodySchema = z.object({
@@ -128,6 +133,27 @@ export async function POST(req: NextRequest) {
 
     const matchScore = computeMatchScore(answers, protocolSlug);
 
+    // ── Calculate stack scores if user provided supplements ──────────────────
+    const hasSupplements = 
+      (answers.supplements_specific && answers.supplements_specific.length > 0) ||
+      (answers.supplements_current && answers.supplements_current.trim().length > 0);
+
+    let stackScores = null;
+    if (hasSupplements) {
+      const supplementsList = answers.supplements_specific || [];
+      const userGoals = {
+        primary: answers.primary_goal ? [answers.primary_goal] : [],
+        secondary: answers.secondary_goals || [],
+      };
+      
+      try {
+        stackScores = calculateStackScores(supplementsList, userGoals);
+      } catch (err) {
+        console.error("Stack scoring error:", err);
+        // Non-fatal, continue without scores
+      }
+    }
+
     // ── Upsert the session row so it exists ───────────────────────────────────
     await supabase.from("sessions").upsert({
       id:         sessionId,
@@ -159,6 +185,10 @@ export async function POST(req: NextRequest) {
           focus_level:     answers.focus_level,
           secondary_goals: secondaryGoals,
           health_conditions: answers.health_conditions,
+          supplements_usage: answers.supplements_usage,
+          supplements_specific: answers.supplements_specific,
+          supplements_current: answers.supplements_current,
+          stack_scores: stackScores,
         },
       })
       .select("id")
@@ -174,6 +204,7 @@ export async function POST(req: NextRequest) {
       protocolSlug,
       matchScore,
       quizResponseId:  quizRow?.id ?? null,
+      stackScores,     // Include scores in response
     });
   } catch (err) {
     console.error("Quiz API error:", err);

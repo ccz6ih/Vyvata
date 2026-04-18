@@ -6,6 +6,7 @@ import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
 import { parseStackText, computeScore } from "@/lib/stack-parser";
 import { runRulesEngine } from "@/lib/rules-engine";
+import { calculateStackScores } from "@/lib/scoring-engine";
 import { getSupabaseServer } from "@/lib/supabase";
 import { getCurrentUser } from "@/lib/supabase-auth";
 import type { Goal, TeaserResult } from "@/types";
@@ -51,6 +52,11 @@ export async function POST(req: NextRequest) {
 
     // Build teaser (deterministic — no LLM)
     const teaser = buildTeaser(rules, score, goals as Goal[]);
+
+    // Calculate stack scores (Evidence/Safety/Optimization/Value)
+    const ingredientNames = ingredients.map(ing => ing.name);
+    const userGoals = { primary: [goals[0]], secondary: goals.slice(1) };
+    const stackScores = calculateStackScores(ingredientNames, userGoals);
 
     // Persist session + audit to Supabase
     const supabase = getSupabaseServer();
@@ -98,6 +104,7 @@ export async function POST(req: NextRequest) {
       teaser,
       ingredientCount: ingredients.length,
       matchedCount: rules.matched.length,
+      stackScores,
     });
   } catch (err) {
     console.error("parse-stack error:", err);

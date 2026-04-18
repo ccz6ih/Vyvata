@@ -7,10 +7,13 @@ import { Button } from "@/components/ui/button";
 import {
   ArrowLeft, Share2, Lock, CheckCircle, XCircle,
   AlertTriangle, Plus, ArrowRight, RefreshCw, Sparkles,
-  Stethoscope,
+  Stethoscope, Check, Play,
 } from "lucide-react";
 import type { AuditResult, ReportSection, WorkingItem, WastingItem, FightingItem, MissingItem, RevisedStackItem } from "@/types";
 import { VyvataLogo } from "@/components/VyvataLogo";
+import { ProtocolEvidenceSection } from "@/components/ProtocolEvidenceSection";
+import { StackScoreCard } from "@/components/StackScoreCard";
+import type { StackScore } from "@/lib/scoring-engine";
 
 // ── SHARED COMPONENTS ─────────────────────────────────────────
 
@@ -114,7 +117,7 @@ function SectionCard({
 
 // ── FULL REPORT ───────────────────────────────────────────────
 
-function FullReport({ report }: { report: ReportSection }) {
+function FullReport({ report, scores }: { report: ReportSection; scores?: StackScore | null }) {
   return (
     <div className="space-y-5">
       {/* Verdict */}
@@ -414,6 +417,21 @@ function FullReport({ report }: { report: ReportSection }) {
           </div>
         </SectionCard>
       )}
+
+      {/* Clinical Evidence Section */}
+      <ProtocolEvidenceSection
+        ingredientNames={[
+          ...report.working.map(i => i.name),
+          ...report.missing.map(i => i.name),
+          ...report.revisedStack.filter(i => i.status !== "remove").map(i => i.name),
+        ]}
+        protocolName={report.verdict}
+      />
+
+      {/* Stack Scores (if available) */}
+      {scores && (
+        <StackScoreCard scores={scores} />
+      )}
     </div>
   );
 }
@@ -460,13 +478,31 @@ export default function ProtocolClient({ slug }: { slug: string }) {
   const [unlocked, setUnlocked] = useState(false);
   const [auditId, setAuditId] = useState<string | null>(null);
   const [quizAnswers, setQuizAnswers] = useState<Record<string, unknown> | null>(null);
+  const [stackScores, setStackScores] = useState<StackScore | null>(null);
+  const [unlockingStep, setUnlockingStep] = useState(0);
 
-  // Read quiz answers from sessionStorage if coming from quiz flow
+  const UNLOCK_STEPS = [
+    "Analyzing your stack composition...",
+    "Researching clinical evidence...",
+    "Cross-referencing ingredient interactions...",
+    "Building personalized recommendations...",
+    "Finalizing your protocol...",
+  ];
+
+  // Read quiz answers and stack scores from sessionStorage if coming from quiz flow
   useEffect(() => {
-    if (fromQuiz && typeof window !== "undefined") {
-      const stored = sessionStorage.getItem("vv_quiz_answers");
-      if (stored) {
-        try { setQuizAnswers(JSON.parse(stored)); } catch {}
+    if (typeof window !== "undefined") {
+      if (fromQuiz) {
+        const stored = sessionStorage.getItem("vv_quiz_answers");
+        if (stored) {
+          try { setQuizAnswers(JSON.parse(stored)); } catch {}
+        }
+      }
+      
+      // Always try to load stack scores (could be from quiz OR audit flow)
+      const scoresStored = sessionStorage.getItem("vv_stack_scores");
+      if (scoresStored) {
+        try { setStackScores(JSON.parse(scoresStored)); } catch {}
       }
     }
   }, [fromQuiz]);
@@ -519,6 +555,15 @@ export default function ProtocolClient({ slug }: { slug: string }) {
     e.preventDefault();
     if (!email || !auditId || unlocking) return;
     setUnlocking(true);
+    setUnlockingStep(0);
+
+    // Animate through steps while API processes
+    const stepInterval = setInterval(() => {
+      setUnlockingStep((prev) => {
+        if (prev < UNLOCK_STEPS.length - 1) return prev + 1;
+        return prev;
+      });
+    }, 3000); // 3 seconds per step
 
     try {
       const sessionId =
@@ -535,15 +580,19 @@ export default function ProtocolClient({ slug }: { slug: string }) {
       if (!res.ok) throw new Error("Failed to unlock");
       const data = await res.json();
 
+      clearInterval(stepInterval);
       setAudit((prev) =>
         prev ? { ...prev, report: data.report, isUnlocked: true } : null
       );
       setUnlocked(true);
       toast.success("Protocol unlocked. Check your inbox for your copy.");
     } catch {
+      clearInterval(stepInterval);
       toast.error("Something went wrong. Try again.");
     } finally {
+      clearInterval(stepInterval);
       setUnlocking(false);
+      setUnlockingStep(0);
     }
   };
 
@@ -646,6 +695,11 @@ export default function ProtocolClient({ slug }: { slug: string }) {
                 ))}
               </div>
             </div>
+          )}
+
+          {/* Stack Scores (if available) */}
+          {stackScores && (
+            <StackScoreCard scores={stackScores} />
           )}
 
           {/* Prompt to audit stack */}
@@ -920,68 +974,137 @@ export default function ProtocolClient({ slug }: { slug: string }) {
             </div>
 
             {/* Email gate */}
-            <div
-              className="rounded-2xl p-6 space-y-5"
-              style={{
-                background: "rgba(17,32,64,0.6)",
-                border: "1px solid rgba(201,214,223,0.12)",
-              }}
-            >
-              <div>
-                <h3
-                  className="text-lg font-bold text-white"
-                  style={{ fontFamily: "Montserrat, sans-serif" }}
-                >
-                  Unlock your full protocol
-                </h3>
-                <p
-                  className="text-sm mt-1.5 leading-relaxed"
-                  style={{ color: "#C9D6DF", fontFamily: "Inter, sans-serif" }}
-                >
-                  Get the complete breakdown — verdict, what's working, what to drop,
-                  interactions to fix, what you're missing, and your optimized stack.
-                </p>
+            {unlocking ? (
+              <div
+                className="rounded-2xl p-6 space-y-6"
+                style={{
+                  background: "rgba(17,32,64,0.6)",
+                  border: "1px solid rgba(20,184,166,0.12)",
+                }}
+              >
+                <div className="text-center space-y-2">
+                  <h3
+                    className="text-lg font-bold text-white"
+                    style={{ fontFamily: "Montserrat, sans-serif" }}
+                  >
+                    Unlocking your protocol
+                  </h3>
+                  <p
+                    className="text-sm"
+                    style={{ color: "#7A90A8", fontFamily: "Inter, sans-serif" }}
+                  >
+                    Our AI is analyzing your stack and building personalized recommendations
+                  </p>
+                </div>
+
+                {/* Progress steps */}
+                <div className="space-y-3">
+                  {UNLOCK_STEPS.map((step, i) => (
+                    <div
+                      key={step}
+                      className="flex items-center gap-3 text-sm transition-all duration-300"
+                      style={{
+                        color: i < unlockingStep
+                          ? "rgba(201,214,223,0.4)"
+                          : i === unlockingStep
+                          ? "#14B8A6"
+                          : "rgba(201,214,223,0.2)",
+                        fontFamily: "Inter, sans-serif",
+                      }}
+                    >
+                      <span className="w-4 shrink-0 flex items-center justify-center">
+                        {i < unlockingStep ? (
+                          <Check size={12} strokeWidth={2.5} />
+                        ) : i === unlockingStep ? (
+                          <Play size={10} strokeWidth={2.5} fill="currentColor" />
+                        ) : (
+                          <span className="w-1 h-1 rounded-full" style={{ background: "currentColor" }} />
+                        )}
+                      </span>
+                      <span>{step}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Pulse dots */}
+                <div className="flex justify-center gap-1.5 pt-2">
+                  {[0, 1, 2].map((i) => (
+                    <div
+                      key={i}
+                      className="w-1.5 h-1.5 rounded-full"
+                      style={{
+                        background: "#14B8A6",
+                        animation: "pulse-dot 1.4s ease-in-out infinite",
+                        animationDelay: `${i * 0.2}s`,
+                      }}
+                    />
+                  ))}
+                </div>
               </div>
-              <form onSubmit={handleUnlock} className="space-y-3">
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="your@email.com"
-                  required
-                  className="w-full px-4 py-3 rounded-xl text-sm text-white placeholder:text-[#7A90A8] focus:outline-none transition-all"
-                  style={{
-                    background: "rgba(255,255,255,0.05)",
-                    border: "1px solid rgba(201,214,223,0.15)",
-                    fontFamily: "Inter, sans-serif",
-                  }}
-                  data-testid="input-email"
-                />
-                <Button
-                  type="submit"
-                  disabled={!email || unlocking}
-                  className="w-full h-13 font-bold gap-2 rounded-xl btn-teal"
-                  style={{
-                    height: "52px",
-                    fontFamily: "Montserrat, sans-serif",
-                    fontSize: "14px",
-                  }}
-                  data-testid="button-unlock"
-                >
-                  {unlocking ? "Unlocking..." : "Unlock Full Protocol"}
-                  {!unlocking && <ArrowRight size={15} />}
-                </Button>
-                <p
-                  className="text-center text-xs"
-                  style={{ color: "#7A90A8", fontFamily: "Inter, sans-serif" }}
-                >
-                  Free forever. We'll also send your protocol to your inbox. No spam.
-                </p>
-              </form>
-            </div>
+            ) : (
+              <div
+                className="rounded-2xl p-6 space-y-5"
+                style={{
+                  background: "rgba(17,32,64,0.6)",
+                  border: "1px solid rgba(201,214,223,0.12)",
+                }}
+              >
+                <div>
+                  <h3
+                    className="text-lg font-bold text-white"
+                    style={{ fontFamily: "Montserrat, sans-serif" }}
+                  >
+                    Unlock your full protocol
+                  </h3>
+                  <p
+                    className="text-sm mt-1.5 leading-relaxed"
+                    style={{ color: "#C9D6DF", fontFamily: "Inter, sans-serif" }}
+                  >
+                    Get the complete breakdown — verdict, what's working, what to drop,
+                    interactions to fix, what you're missing, and your optimized stack.
+                  </p>
+                </div>
+                <form onSubmit={handleUnlock} className="space-y-3">
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="your@email.com"
+                    required
+                    className="w-full px-4 py-3 rounded-xl text-sm text-white placeholder:text-[#7A90A8] focus:outline-none transition-all"
+                    style={{
+                      background: "rgba(255,255,255,0.05)",
+                      border: "1px solid rgba(201,214,223,0.15)",
+                      fontFamily: "Inter, sans-serif",
+                    }}
+                    data-testid="input-email"
+                  />
+                  <Button
+                    type="submit"
+                    disabled={!email || unlocking}
+                    className="w-full h-13 font-bold gap-2 rounded-xl btn-teal"
+                    style={{
+                      height: "52px",
+                      fontFamily: "Montserrat, sans-serif",
+                      fontSize: "14px",
+                    }}
+                    data-testid="button-unlock"
+                  >
+                    {unlocking ? "Unlocking..." : "Unlock Full Protocol"}
+                    {!unlocking && <ArrowRight size={15} />}
+                  </Button>
+                  <p
+                    className="text-center text-xs"
+                    style={{ color: "#7A90A8", fontFamily: "Inter, sans-serif" }}
+                  >
+                    Free forever. We'll also send your protocol to your inbox. No spam.
+                  </p>
+                </form>
+              </div>
+            )}
           </div>
         ) : report ? (
-          <FullReport report={report} />
+          <FullReport report={report} scores={stackScores} />
         ) : (
           <div
             className="text-center py-8 text-sm"
