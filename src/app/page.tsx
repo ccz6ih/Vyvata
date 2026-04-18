@@ -4,7 +4,8 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Sparkles, Shield, Zap, BarChart3, Users, ChevronDown } from "lucide-react";
+import { ArrowRight, Sparkles, Shield, Zap, BarChart3, Users, ChevronDown, Brain, Moon, Flame } from "lucide-react";
+import { VyvataLogo } from "@/components/VyvataLogo";
 
 const PLACEHOLDER = `Energy crashes mid-afternoon
 Poor sleep, waking at 3am
@@ -14,51 +15,21 @@ Already taking: Vitamin D3 5000IU, Magnesium, Fish Oil...
 
 Paste your symptoms, goals, or current stack — however you have it.`;
 
-// Vyvata SVG Logo
-function VyvataLogo({ size = 28 }: { size?: number }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 32 32"
-      fill="none"
-      aria-label="Vyvata"
-      className="shrink-0"
-    >
-      {/* Outer ring — intelligence circle */}
-      <circle cx="16" cy="16" r="14.5" stroke="#14B8A6" strokeWidth="1.2" strokeDasharray="4 2" opacity="0.5" />
-      {/* Inner form — V / vitality mark */}
-      <path
-        d="M9 9L16 23L23 9"
-        stroke="#14B8A6"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      {/* Center dot — precision point */}
-      <circle cx="16" cy="16" r="1.8" fill="#14B8A6" />
-      {/* Top nodes — neural network suggestion */}
-      <circle cx="9" cy="9" r="1.5" fill="#14B8A6" opacity="0.7" />
-      <circle cx="23" cy="9" r="1.5" fill="#14B8A6" opacity="0.7" />
-    </svg>
-  );
-}
-
 const PROTOCOLS = [
   {
-    icon: "🧠",
+    Icon: Brain,
     title: "Cognitive Performance",
     tags: ["Focus", "Memory", "Clarity"],
     desc: "Sharpen attention, reduce brain fog, optimize cognitive output.",
   },
   {
-    icon: "🌙",
+    Icon: Moon,
     title: "Sleep & Recovery",
     tags: ["Deep Sleep", "Recovery", "HRV"],
     desc: "Restore restorative sleep cycles and accelerate physical recovery.",
   },
   {
-    icon: "🔥",
+    Icon: Flame,
     title: "Inflammation & Longevity",
     tags: ["Inflammation", "Oxidative Stress", "Lifespan"],
     desc: "Target systemic inflammation and support long-term cellular health.",
@@ -340,7 +311,9 @@ export default function LandingPage() {
                 className="glass-card rounded-xl p-6 space-y-4 hover-elevate cursor-pointer"
                 onClick={scrollToInput}
               >
-                <div className="text-3xl">{p.icon}</div>
+                <div style={{ color: "#14B8A6" }}>
+                  <p.Icon size={32} strokeWidth={1.5} />
+                </div>
                 <div>
                   <h3
                     className="font-bold text-white text-lg mb-2"

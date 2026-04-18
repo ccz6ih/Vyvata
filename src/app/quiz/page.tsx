@@ -2,25 +2,18 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, Check, ChevronRight } from "lucide-react";
+import {
+  ArrowLeft, ArrowRight, Check, ChevronRight,
+  Moon, Zap, Brain, Hourglass, Footprints, Flame,
+  Dumbbell, RefreshCw, Leaf, Shield, Sprout,
+  type LucideIcon,
+} from "lucide-react";
 import { getOrCreateSessionId } from "@/lib/session";
-
-// ── Logo ──────────────────────────────────────────────────────────────────────
-function VyvataLogo({ size = 28 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-label="Vyvata">
-      <circle cx="16" cy="16" r="14.5" stroke="#14B8A6" strokeWidth="1.2" strokeDasharray="4 2" opacity="0.5" />
-      <path d="M9 9L16 23L23 9" stroke="#14B8A6" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="16" cy="16" r="1.8" fill="#14B8A6" />
-      <circle cx="9"  cy="9"  r="1.5" fill="#14B8A6" opacity="0.7" />
-      <circle cx="23" cy="9"  r="1.5" fill="#14B8A6" opacity="0.7" />
-    </svg>
-  );
-}
+import { VyvataLogo } from "@/components/VyvataLogo";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-type SingleOption = { type: "single"; key: string; label: string; icon?: string };
-type MultiOption  = { type: "multi";  key: string; label: string; icon?: string };
+type SingleOption = { type: "single"; key: string; label: string; Icon?: LucideIcon };
+type MultiOption  = { type: "multi";  key: string; label: string; Icon?: LucideIcon };
 type ScaleOption  = { type: "scale";  key: string; label: string };
 type TextOption   = { type: "text";   placeholder: string };
 
@@ -44,7 +37,6 @@ const STEPS: QuizStep[] = [
       type: "single",
       key: "primary_goal",
       label: "",
-      icon: "",
     } as unknown as SingleOption,
   },
   {
@@ -185,25 +177,25 @@ const STEPS: QuizStep[] = [
 ];
 
 // ── Options per step ──────────────────────────────────────────────────────────
-const OPTIONS: Record<string, { value: string; label: string; icon?: string }[]> = {
+const OPTIONS: Record<string, { value: string; label: string; Icon?: LucideIcon }[]> = {
   primary_goal: [
-    { value: "sleep",        label: "Better sleep",          icon: "🌙" },
-    { value: "energy",       label: "More energy",           icon: "⚡" },
-    { value: "focus",        label: "Sharper focus",         icon: "🧠" },
-    { value: "longevity",    label: "Longevity & healthspan", icon: "🕰️" },
-    { value: "performance",  label: "Athletic performance",  icon: "🏃" },
-    { value: "inflammation", label: "Less inflammation",     icon: "🔥" },
+    { value: "sleep",        label: "Better sleep",           Icon: Moon },
+    { value: "energy",       label: "More energy",            Icon: Zap },
+    { value: "focus",        label: "Sharper focus",          Icon: Brain },
+    { value: "longevity",    label: "Longevity & healthspan", Icon: Hourglass },
+    { value: "performance",  label: "Athletic performance",   Icon: Footprints },
+    { value: "inflammation", label: "Less inflammation",      Icon: Flame },
   ],
   secondary_goals: [
-    { value: "sleep",        label: "Sleep quality",         icon: "🌙" },
-    { value: "energy",       label: "Sustained energy",      icon: "⚡" },
-    { value: "focus",        label: "Mental clarity",        icon: "🧠" },
-    { value: "longevity",    label: "Longevity",             icon: "🕰️" },
-    { value: "muscle",       label: "Strength & muscle",     icon: "💪" },
-    { value: "recovery",     label: "Recovery speed",        icon: "🔄" },
-    { value: "stress",       label: "Stress resilience",     icon: "🧘" },
-    { value: "immunity",     label: "Immune support",        icon: "🛡️" },
-    { value: "gut",          label: "Gut health",            icon: "🌱" },
+    { value: "sleep",        label: "Sleep quality",      Icon: Moon },
+    { value: "energy",       label: "Sustained energy",   Icon: Zap },
+    { value: "focus",        label: "Mental clarity",     Icon: Brain },
+    { value: "longevity",    label: "Longevity",          Icon: Hourglass },
+    { value: "muscle",       label: "Strength & muscle",  Icon: Dumbbell },
+    { value: "recovery",     label: "Recovery speed",     Icon: RefreshCw },
+    { value: "stress",       label: "Stress resilience",  Icon: Leaf },
+    { value: "immunity",     label: "Immune support",     Icon: Shield },
+    { value: "gut",          label: "Gut health",         Icon: Sprout },
   ],
   sleep_hours: [
     { value: "under5",  label: "Under 5 hours" },
@@ -570,8 +562,8 @@ export default function QuizPage() {
                     }}
                     data-testid={`option-${opt.value}`}
                   >
-                    {opt.icon && (
-                      <span className="text-lg w-7 text-center shrink-0">{opt.icon}</span>
+                    {opt.Icon && (
+                      <opt.Icon size={18} strokeWidth={1.75} className="w-7 shrink-0" style={{ color: selected ? "#14B8A6" : "#7A90A8" }} />
                     )}
                     <span className="flex-1 text-sm font-medium">{opt.label}</span>
                     <div
@@ -610,8 +602,8 @@ export default function QuizPage() {
                     }}
                     data-testid={`multi-${opt.value}`}
                   >
-                    {opt.icon && (
-                      <span className="text-lg w-7 text-center shrink-0">{opt.icon}</span>
+                    {opt.Icon && (
+                      <opt.Icon size={18} strokeWidth={1.75} className="w-7 shrink-0" style={{ color: selected ? "#14B8A6" : "#7A90A8" }} />
                     )}
                     <span className="flex-1 text-sm font-medium">{opt.label}</span>
                     <div

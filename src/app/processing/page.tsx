@@ -2,8 +2,10 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { Check, Play } from "lucide-react";
 import { getOrCreateSessionId } from "@/lib/session";
 import type { Goal } from "@/types";
+import { VyvataLogo } from "@/components/VyvataLogo";
 
 const STEPS = [
   { label: "Parsing your input...",                    duration: 700 },
@@ -13,18 +15,6 @@ const STEPS = [
   { label: "Analyzing goal alignment...",              duration: 700 },
   { label: "Building your personalized protocol...",   duration: 800 },
 ];
-
-function VyvataLogo({ size = 32 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 32 32" fill="none">
-      <circle cx="16" cy="16" r="14.5" stroke="#14B8A6" strokeWidth="1.2" strokeDasharray="4 2" opacity="0.5" />
-      <path d="M9 9L16 23L23 9" stroke="#14B8A6" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="16" cy="16" r="1.8" fill="#14B8A6" />
-      <circle cx="9" cy="9" r="1.5" fill="#14B8A6" opacity="0.7" />
-      <circle cx="23" cy="9" r="1.5" fill="#14B8A6" opacity="0.7" />
-    </svg>
-  );
-}
 
 export default function ProcessingPage() {
   const router = useRouter();
@@ -163,8 +153,14 @@ export default function ProcessingPage() {
                     fontFamily: "Inter, sans-serif",
                   }}
                 >
-                  <span className="w-4 shrink-0 text-xs">
-                    {i < currentStep ? "✓" : i === currentStep ? "▶" : "·"}
+                  <span className="w-4 shrink-0 flex items-center justify-center">
+                    {i < currentStep ? (
+                      <Check size={12} strokeWidth={2.5} />
+                    ) : i === currentStep ? (
+                      <Play size={10} strokeWidth={2.5} fill="currentColor" />
+                    ) : (
+                      <span className="w-1 h-1 rounded-full" style={{ background: "currentColor" }} />
+                    )}
                   </span>
                   <span
                     style={{

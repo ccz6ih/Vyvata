@@ -3,6 +3,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
   title: "Vyvata — Personalized Wellness Protocols, Powered by Intelligence",
   description:
     "Your AI-powered wellness guide. Answer a few questions, get a personalized supplement protocol and lifestyle plan — built for your goals. Free. Under 60 seconds.",
@@ -25,7 +26,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" data-scroll-behavior="smooth">
       <body className="antialiased">
         {children}
         <Toaster

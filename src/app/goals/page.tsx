@@ -3,30 +3,19 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, ArrowLeft } from "lucide-react";
+import { ArrowRight, ArrowLeft, Moon, Zap, Brain, Flame, Hourglass, Dumbbell, RefreshCw } from "lucide-react";
 import type { Goal, GoalOption } from "@/types";
+import { VyvataLogo } from "@/components/VyvataLogo";
 
 const GOALS: GoalOption[] = [
-  { id: "sleep",        label: "Sleep & Recovery",     emoji: "🌙" },
-  { id: "energy",       label: "Energy & Vitality",     emoji: "⚡" },
-  { id: "focus",        label: "Focus & Cognition",     emoji: "🧠" },
-  { id: "inflammation", label: "Reduce Inflammation",   emoji: "🔥" },
-  { id: "longevity",    label: "Longevity & Healthspan", emoji: "🕰️" },
-  { id: "muscle",       label: "Strength & Muscle",     emoji: "💪" },
-  { id: "recovery",     label: "Athletic Recovery",     emoji: "🔄" },
+  { id: "sleep",        label: "Sleep & Recovery",       Icon: Moon },
+  { id: "energy",       label: "Energy & Vitality",      Icon: Zap },
+  { id: "focus",        label: "Focus & Cognition",      Icon: Brain },
+  { id: "inflammation", label: "Reduce Inflammation",    Icon: Flame },
+  { id: "longevity",    label: "Longevity & Healthspan", Icon: Hourglass },
+  { id: "muscle",       label: "Strength & Muscle",      Icon: Dumbbell },
+  { id: "recovery",     label: "Athletic Recovery",      Icon: RefreshCw },
 ];
-
-function VyvataLogo({ size = 22 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 32 32" fill="none">
-      <circle cx="16" cy="16" r="14.5" stroke="#14B8A6" strokeWidth="1.2" strokeDasharray="4 2" opacity="0.5" />
-      <path d="M9 9L16 23L23 9" stroke="#14B8A6" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="16" cy="16" r="1.8" fill="#14B8A6" />
-      <circle cx="9" cy="9" r="1.5" fill="#14B8A6" opacity="0.7" />
-      <circle cx="23" cy="9" r="1.5" fill="#14B8A6" opacity="0.7" />
-    </svg>
-  );
-}
 
 export default function GoalsPage() {
   const router = useRouter();
@@ -134,7 +123,7 @@ export default function GoalsPage() {
                     fontFamily: "Inter, sans-serif",
                   }}
                 >
-                  <span className="text-xl">{goal.emoji}</span>
+                  <goal.Icon size={20} strokeWidth={1.75} className="shrink-0" />
                   <span className="flex-1">{goal.label}</span>
                   {isSelected && (
                     <span

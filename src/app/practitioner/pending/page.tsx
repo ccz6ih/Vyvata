@@ -2,18 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Clock, Mail, CheckCircle2, ArrowRight } from "lucide-react";
-
-function VyvataLogo({ size = 28 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-label="Vyvata">
-      <circle cx="16" cy="16" r="14.5" stroke="#14B8A6" strokeWidth="1.2" strokeDasharray="4 2" opacity="0.5" />
-      <path d="M9 9L16 23L23 9" stroke="#14B8A6" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="16" cy="16" r="1.8" fill="#14B8A6" />
-      <circle cx="9"  cy="9"  r="1.5" fill="#14B8A6" opacity="0.7" />
-      <circle cx="23" cy="9"  r="1.5" fill="#14B8A6" opacity="0.7" />
-    </svg>
-  );
-}
+import { VyvataLogo } from "@/components/VyvataLogo";
 
 const STEPS = [
   { icon: CheckCircle2, label: "Application submitted", done: true },

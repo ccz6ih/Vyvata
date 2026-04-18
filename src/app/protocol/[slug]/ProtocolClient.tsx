@@ -6,23 +6,14 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   ArrowLeft, Share2, Lock, CheckCircle, XCircle,
-  AlertTriangle, Plus, ArrowRight, RefreshCw, Sparkles
+  AlertTriangle, Plus, ArrowRight, RefreshCw, Sparkles,
+  Brain, Moon, Footprints, Hourglass,
+  type LucideIcon,
 } from "lucide-react";
 import type { AuditResult, ReportSection, WorkingItem, WastingItem, FightingItem, MissingItem, RevisedStackItem } from "@/types";
+import { VyvataLogo } from "@/components/VyvataLogo";
 
 // ── SHARED COMPONENTS ─────────────────────────────────────────
-
-function VyvataLogo({ size = 22 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 32 32" fill="none">
-      <circle cx="16" cy="16" r="14.5" stroke="#14B8A6" strokeWidth="1.2" strokeDasharray="4 2" opacity="0.5" />
-      <path d="M9 9L16 23L23 9" stroke="#14B8A6" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="16" cy="16" r="1.8" fill="#14B8A6" />
-      <circle cx="9" cy="9" r="1.5" fill="#14B8A6" opacity="0.7" />
-      <circle cx="23" cy="9" r="1.5" fill="#14B8A6" opacity="0.7" />
-    </svg>
-  );
-}
 
 function EvidencePip({ tier }: { tier: string }) {
   const colors: Record<string, string> = {
@@ -431,28 +422,28 @@ function FullReport({ report }: { report: ReportSection }) {
 // ── MAIN CLIENT COMPONENT ─────────────────────────────────────
 
 // ── Quiz-based protocol map (matches /api/quiz route) ────────────
-const PROTOCOL_META: Record<string, { name: string; icon: string; category: string; tagline: string }> = {
+const PROTOCOL_META: Record<string, { name: string; Icon: LucideIcon; category: string; tagline: string }> = {
   "cognitive-performance": {
     name: "Cognitive Performance",
-    icon: "🧠",
+    Icon: Brain,
     category: "Focus & Cognition",
     tagline: "Sharpen attention, reduce brain fog, optimize mental output.",
   },
   "deep-sleep-recovery": {
     name: "Deep Sleep & Recovery",
-    icon: "🌙",
+    Icon: Moon,
     category: "Sleep & Recovery",
     tagline: "Restore restorative sleep cycles and accelerate physical recovery.",
   },
   "athletic-performance": {
     name: "Athletic Performance",
-    icon: "🏃",
+    Icon: Footprints,
     category: "Performance",
     tagline: "Maximize output, endurance, and recovery velocity.",
   },
   "longevity-foundation": {
     name: "Longevity Foundation",
-    icon: "🕰️",
+    Icon: Hourglass,
     category: "Longevity",
     tagline: "Target cellular health, inflammation, and metabolic resilience.",
   },
@@ -757,10 +748,13 @@ export default function ProtocolClient({ slug }: { slug: string }) {
           >
             <div className="flex items-start gap-3">
               <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-xl"
-                style={{ background: "rgba(20,184,166,0.15)", border: "1px solid rgba(20,184,166,0.2)" }}
+                className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                style={{ background: "rgba(20,184,166,0.15)", border: "1px solid rgba(20,184,166,0.2)", color: "#14B8A6" }}
               >
-                {PROTOCOL_META[slug]?.icon || "✨"}
+                {(() => {
+                  const Icon = PROTOCOL_META[slug]?.Icon ?? Sparkles;
+                  return <Icon size={20} strokeWidth={1.75} />;
+                })()}
               </div>
               <div className="space-y-0.5">
                 <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "#14B8A6", fontFamily: "Inter, sans-serif" }}>

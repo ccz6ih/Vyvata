@@ -5,8 +5,11 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft, ExternalLink, Moon, Activity, Utensils,
   Brain, Check, Edit3, Trash2, Save, X,
-  BarChart3, ShieldCheck, Zap, Clock, Heart
+  BarChart3, ShieldCheck, Zap, Clock, Heart,
+  Footprints, Hourglass, User,
+  type LucideIcon,
 } from "lucide-react";
+import { VyvataLogo } from "@/components/VyvataLogo";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface AuditRecord {
@@ -51,23 +54,11 @@ interface PatientDetail {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function VyvataLogo({ size = 18 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 32 32" fill="none">
-      <circle cx="16" cy="16" r="14.5" stroke="#14B8A6" strokeWidth="1.2" strokeDasharray="4 2" opacity="0.5" />
-      <path d="M9 9L16 23L23 9" stroke="#14B8A6" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="16" cy="16" r="1.8" fill="#14B8A6" />
-      <circle cx="9" cy="9" r="1.5" fill="#14B8A6" opacity="0.7" />
-      <circle cx="23" cy="9" r="1.5" fill="#14B8A6" opacity="0.7" />
-    </svg>
-  );
-}
-
-const PROTOCOL_META: Record<string, { label: string; icon: string; color: string; tagline: string }> = {
-  "cognitive-performance": { label: "Cognitive Performance", icon: "🧠", color: "#818CF8", tagline: "Focus, memory, and mental clarity." },
-  "deep-sleep-recovery":   { label: "Deep Sleep & Recovery", icon: "🌙", color: "#60A5FA", tagline: "Sleep quality and overnight recovery." },
-  "athletic-performance":  { label: "Athletic Performance",  icon: "🏃", color: "#34D399", tagline: "Strength, endurance, and recovery velocity." },
-  "longevity-foundation":  { label: "Longevity Foundation",  icon: "🕰️", color: "#F59E0B", tagline: "Cellular health and metabolic resilience." },
+const PROTOCOL_META: Record<string, { label: string; Icon: LucideIcon; color: string; tagline: string }> = {
+  "cognitive-performance": { label: "Cognitive Performance", Icon: Brain,      color: "#818CF8", tagline: "Focus, memory, and mental clarity." },
+  "deep-sleep-recovery":   { label: "Deep Sleep & Recovery", Icon: Moon,       color: "#60A5FA", tagline: "Sleep quality and overnight recovery." },
+  "athletic-performance":  { label: "Athletic Performance",  Icon: Footprints, color: "#34D399", tagline: "Strength, endurance, and recovery velocity." },
+  "longevity-foundation":  { label: "Longevity Foundation",  Icon: Hourglass,  color: "#F59E0B", tagline: "Cellular health and metabolic resilience." },
 };
 
 function scoreColor(score: number) {
@@ -224,7 +215,7 @@ export default function PatientDetailClient({
                 border: `1px solid ${proto?.color ?? "#14B8A6"}30`,
               }}
             >
-              {proto?.icon ?? "👤"}
+              {proto ? <proto.Icon size={22} strokeWidth={1.75} /> : <User size={22} strokeWidth={1.75} />}
             </div>
 
             <div className="space-y-1">
@@ -260,8 +251,9 @@ export default function PatientDetailClient({
 
               <div className="flex items-center gap-2 flex-wrap">
                 {proto && (
-                  <span className="text-xs font-medium" style={{ color: proto.color }}>
-                    {proto.icon} {proto.label}
+                  <span className="inline-flex items-center gap-1 text-xs font-medium" style={{ color: proto.color }}>
+                    <proto.Icon size={12} strokeWidth={1.75} />
+                    {proto.label}
                   </span>
                 )}
                 {quiz?.age_range && (
@@ -293,7 +285,9 @@ export default function PatientDetailClient({
             className="rounded-xl p-4 flex items-center gap-3"
             style={{ background: `${proto.color}12`, border: `1px solid ${proto.color}30` }}
           >
-            <div className="text-2xl">{proto.icon}</div>
+            <div style={{ color: proto.color }}>
+              <proto.Icon size={26} strokeWidth={1.5} />
+            </div>
             <div className="flex-1">
               <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: proto.color }}>
                 Matched Protocol · {quiz?.protocol_match_score ?? "—"}% fit

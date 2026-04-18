@@ -94,5 +94,17 @@ export async function DELETE(
     .eq("practitioner_id", session.id);
 
   if (error) return NextResponse.json({ error: "Failed" }, { status: 500 });
+
+  const { count } = await supabase
+    .from("patient_links")
+    .select("id", { count: "exact", head: true })
+    .eq("practitioner_id", session.id)
+    .neq("status", "archived");
+
+  await supabase
+    .from("practitioners")
+    .update({ patient_count: count ?? 0 })
+    .eq("id", session.id);
+
   return NextResponse.json({ ok: true });
 }

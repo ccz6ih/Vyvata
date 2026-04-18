@@ -113,8 +113,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Failed to add patient" }, { status: 500 });
   }
 
-  // Increment patient_count
-  await supabase.rpc("increment_patient_count" as never, { prac_id: session.id }).maybeSingle();
+  const { count } = await supabase
+    .from("patient_links")
+    .select("id", { count: "exact", head: true })
+    .eq("practitioner_id", session.id)
+    .neq("status", "archived");
+
+  await supabase
+    .from("practitioners")
+    .update({ patient_count: count ?? 0 })
+    .eq("id", session.id);
 
   return NextResponse.json({ ok: true, linkId: link.id });
 }
