@@ -1,0 +1,297 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+/* ── VYVATA DESIGN SYSTEM ─────────────────────────────────────
+   Positioning: AI-powered trust engine for human optimization,
+   longevity, and performance.
+   Tone: Intelligent · Clean · Elevated · Calm authority
+
+   Palette:
+     Deep Intelligence Blue  #0B1F3B  — backgrounds, authority
+     Vital Energy Teal       #14B8A6  — accents, CTAs, highlights
+     Pure White              #FFFFFF  — space, premium feel
+     Soft Graphite           #2E2E2E  — body text, UI contrast
+     Cool Silver             #C9D6DF  — dividers, subtle UI
+     Deep Emerald            #0F766E  — hover states, depth
+─────────────────────────────────────────────────────────────── */
+
+@theme {
+  /* ── FONTS ── */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: 'Montserrat', 'Inter', sans-serif;
+  --font-mono: 'IBM Plex Mono', 'Menlo', monospace;
+
+  /* ── BRAND COLORS ── */
+  /* Primary: Deep Intelligence Blue */
+  --color-brand-blue:        #0B1F3B;
+  --color-brand-blue-mid:    #0E2A50;
+  --color-brand-blue-light:  #132E5A;
+
+  /* Primary: Vital Energy Teal */
+  --color-brand-teal:        #14B8A6;
+  --color-brand-teal-hover:  #0F766E;
+  --color-brand-teal-light:  #99F6E4;
+  --color-brand-teal-faint:  #CCFBF1;
+
+  /* Support */
+  --color-brand-graphite:    #2E2E2E;
+  --color-brand-silver:      #C9D6DF;
+  --color-brand-emerald:     #0F766E;
+
+  /* ── SEMANTIC TOKENS (dark theme — blue navy surfaces) ── */
+  --color-background:        #0B1F3B;
+  --color-background-alt:    #0E2A50;
+  --color-surface:           #112040;
+  --color-surface-2:         #142550;
+  --color-surface-raised:    #1a2d5a;
+
+  --color-foreground:        #FFFFFF;
+  --color-foreground-muted:  #C9D6DF;
+  --color-foreground-faint:  #7A90A8;
+
+  --color-primary:           #14B8A6;
+  --color-primary-foreground:#FFFFFF;
+  --color-primary-hover:     #0F766E;
+
+  --color-secondary:         #1a2d5a;
+  --color-secondary-foreground: #C9D6DF;
+
+  --color-card:              #112040;
+  --color-card-foreground:   #FFFFFF;
+
+  --color-border:            rgba(201, 214, 223, 0.12);
+  --color-border-strong:     rgba(201, 214, 223, 0.22);
+  --color-input:             rgba(255,255,255,0.08);
+  --color-ring:              #14B8A6;
+
+  --color-muted:             #1a2d5a;
+  --color-muted-foreground:  #7A90A8;
+
+  --color-accent:            rgba(20, 184, 166, 0.12);
+  --color-accent-foreground: #14B8A6;
+
+  --color-destructive:       oklch(0.57 0.20 27);
+  --color-destructive-foreground: #FFFFFF;
+
+  /* Sidebar */
+  --color-sidebar:           #0B1F3B;
+  --color-sidebar-foreground:#FFFFFF;
+  --color-sidebar-border:    rgba(201, 214, 223, 0.10);
+  --color-sidebar-primary:   #14B8A6;
+  --color-sidebar-primary-foreground: #0B1F3B;
+  --color-sidebar-accent:    rgba(20, 184, 166, 0.10);
+  --color-sidebar-accent-foreground: #14B8A6;
+  --color-sidebar-ring:      #14B8A6;
+
+  /* Charts */
+  --color-chart-1:           #14B8A6;
+  --color-chart-2:           #34D399;
+  --color-chart-3:           #60A5FA;
+  --color-chart-4:           #A78BFA;
+  --color-chart-5:           #F59E0B;
+
+  /* Radius */
+  --radius:                  0.5rem;
+  --radius-lg:               0.75rem;
+  --radius-xl:               1rem;
+
+  /* Gradient */
+  --gradient-brand: linear-gradient(135deg, #0B1F3B 0%, #14B8A6 100%);
+  --gradient-brand-subtle: linear-gradient(135deg, #0B1F3B 0%, #0E2A50 60%, #0d3d38 100%);
+
+  /* Elevate */
+  --elevate-1: rgba(255, 255, 255, 0.03);
+  --elevate-2: rgba(255, 255, 255, 0.06);
+  --elevate-teal: rgba(20, 184, 166, 0.08);
+}
+
+/* ── BASE ──────────────────────────────────────────────────── */
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  line-height: 1.65;
+  min-height: 100dvh;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  text-wrap: balance;
+  line-height: 1.15;
+  font-weight: 700;
+}
+
+p, li {
+  text-wrap: pretty;
+}
+
+::selection {
+  background: rgba(20, 184, 166, 0.3);
+  color: #FFFFFF;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-brand-teal);
+  outline-offset: 3px;
+  border-radius: var(--radius);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── TYPOGRAPHY UTILITIES ─────────────────────────────────── */
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+.font-mono {
+  font-family: var(--font-mono) !important;
+}
+
+/* ── VYVATA GRADIENT ──────────────────────────────────────── */
+
+.gradient-brand {
+  background: var(--gradient-brand);
+}
+
+.gradient-brand-subtle {
+  background: var(--gradient-brand-subtle);
+}
+
+.text-gradient {
+  background: linear-gradient(135deg, #14B8A6 0%, #34D399 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── GLASS / CARD SURFACES ────────────────────────────────── */
+
+.glass-card {
+  background: rgba(17, 32, 64, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(201, 214, 223, 0.12);
+}
+
+.glass-card-teal {
+  background: rgba(20, 184, 166, 0.06);
+  border: 1px solid rgba(20, 184, 166, 0.18);
+}
+
+/* ── CTA BUTTON GLOW ──────────────────────────────────────── */
+
+.btn-teal {
+  background: #14B8A6;
+  color: #FFFFFF;
+  font-family: var(--font-display);
+  font-weight: 600;
+  border: none;
+  transition: all 0.2s ease;
+  box-shadow: 0 0 0 0 rgba(20, 184, 166, 0);
+}
+
+.btn-teal:hover {
+  background: #0F766E;
+  box-shadow: 0 4px 24px rgba(20, 184, 166, 0.35);
+  transform: translateY(-1px);
+}
+
+.btn-teal:active {
+  transform: translateY(0);
+}
+
+/* ── DIVIDERS ─────────────────────────────────────────────── */
+
+.divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(201, 214, 223, 0.2), transparent);
+}
+
+/* ── PROCESSING ANIMATION ─────────────────────────────────── */
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+
+.pulse-dot { animation: pulse-dot 1.4s ease-in-out infinite; }
+.pulse-dot:nth-child(2) { animation-delay: 0.2s; }
+.pulse-dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.fade-up { animation: fade-up 0.4s ease-out forwards; }
+
+@keyframes scan {
+  0%   { background-position: 0% 0%; }
+  100% { background-position: 0% 100%; }
+}
+
+/* ── BLUR GATE ────────────────────────────────────────────── */
+
+.blur-gate {
+  filter: blur(7px);
+  user-select: none;
+  pointer-events: none;
+  opacity: 0.45;
+}
+
+/* ── TEAL GLOW RING (for score/key elements) ─────────────── */
+
+.teal-glow {
+  box-shadow: 0 0 32px rgba(20, 184, 166, 0.2), 0 0 64px rgba(20, 184, 166, 0.08);
+}
+
+/* ── SCORE COLORS ─────────────────────────────────────────── */
+
+.score-good { color: #34D399; }
+.score-mid  { color: #F59E0B; }
+.score-bad  { color: #F87171; }
+
+/* ── ELEVATION HOVER SYSTEM ───────────────────────────────── */
+
+.hover-elevate {
+  position: relative;
+  z-index: 0;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.hover-elevate:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+}
+
+/* ── SUBTLE ANIMATED BG FOR HERO ─────────────────────────── */
+
+@keyframes subtle-shift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.hero-bg {
+  background: linear-gradient(-45deg, #0B1F3B, #0E2A50, #0d3d38, #0B1F3B);
+  background-size: 400% 400%;
+  animation: subtle-shift 18s ease infinite;
+}
