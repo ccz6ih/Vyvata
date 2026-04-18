@@ -150,7 +150,14 @@ export function runRulesEngine(
     moderate: matched.filter((m) => m.evidence_tier === "moderate").length,
     weak: matched.filter((m) => m.evidence_tier === "weak").length,
     none: matched.filter((m) => m.evidence_tier === "none").length,
-  };synergies,
+  };
+
+  return {
+    matched,
+    unmatched,
+    interactions,
+    redundancies,
+    synergies,
     dosageIssues,
     timingConflicts,
     cyclingRecommendations,
@@ -375,14 +382,7 @@ function buildCyclingRecommendations(
     }
   }
 
-  return recommendations unmatched,
-    interactions,
-    redundancies,
-    dosageIssues,
-    timingConflicts,
-    goalGaps,
-    evidenceBreakdown,
-  };
+  return recommendations;
 }
 
 function buildInteractionFix(a: IngredientRecord, b: IngredientRecord): string {

@@ -609,7 +609,9 @@ export default function ProtocolClient({ slug }: { slug: string }) {
             className="rounded-2xl p-8 text-center"
             style={{ background: "linear-gradient(135deg, rgba(17,32,64,0.9) 0%, rgba(13,61,56,0.5) 100%)", border: "1px solid rgba(20,184,166,0.25)" }}
           >
-            <div className="text-4xl mb-4">{meta.icon}</div>
+            <div className="text-4xl mb-4 flex justify-center" style={{ color: "#14B8A6" }}>
+              <meta.Icon size={48} />
+            </div>
             <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: "#14B8A6", fontFamily: "Inter, sans-serif" }}>
               Your Recommended Protocol
             </p>

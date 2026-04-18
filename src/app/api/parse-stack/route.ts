@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from "uuid";
 import { parseStackText, computeScore } from "@/lib/stack-parser";
 import { runRulesEngine } from "@/lib/rules-engine";
 import { getSupabaseServer } from "@/lib/supabase";
+import { getCurrentUser } from "@/lib/supabase-auth";
 import type { Goal, TeaserResult } from "@/types";
 
 const BodySchema = z.object({
@@ -64,6 +65,7 @@ export async function POST(req: NextRequest) {
 
     // Create audit row
     const publicSlug = uuidv4().slice(0, 8);
+    const user = await getCurrentUser();
     const { data: auditRow, error: auditError } = await supabase
       .from("audits")
       .insert({
@@ -73,8 +75,9 @@ export async function POST(req: NextRequest) {
         score,
         teaser_json: JSON.stringify(teaser),
         report_json: null,
-        email: null,
+        email: user?.email ?? null,
         is_unlocked: false,
+        ...(user ? { user_id: user.id } : {}),
       })
       .select()
       .single();

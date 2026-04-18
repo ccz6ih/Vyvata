@@ -6,12 +6,83 @@ import { useRouter } from "next/navigation";
 import {
   Users, BarChart3, Brain, Moon, Zap, Clock,
   LogOut, Plus, ChevronRight, Search, X,
-  Stethoscope, TrendingUp, Activity,
+  Stethoscope, TrendingUp, Activity, Download,
   Footprints, Hourglass, User,
   type LucideIcon,
 } from "lucide-react";
 import type { PractitionerSession } from "@/lib/practitioner-auth";
 import { VyvataLogo } from "@/components/VyvataLogo";
+
+// ── CSV Export Helper ─────────────────────────────────────────────────────────
+function exportPatientsToCSV(patients: PatientLink[], practitionerName: string) {
+  // CSV headers
+  const headers = [
+    "Patient Name",
+    "Status",
+    "Protocol",
+    "Stack Score",
+    "Primary Goals",
+    "Age Range",
+    "Activity Level",
+    "Sleep Quality",
+    "Health Conditions",
+    "Date Added",
+    "Last Note",
+  ];
+
+  // Convert patients to CSV rows
+  const rows = patients.map((p) => {
+    const displayName = p.patient_label || `Patient ${p.id.slice(0, 6).toUpperCase()}`;
+    const protocolLabel = p.quiz_responses?.assigned_protocol_slug
+      ? PROTOCOL_LABELS[p.quiz_responses.assigned_protocol_slug]?.label || p.quiz_responses.assigned_protocol_slug
+      : "—";
+    const score = p.audits?.score ?? "—";
+    const goals = p.quiz_responses?.primary_goals?.join(", ") || "—";
+    const ageRange = p.quiz_responses?.age_range || "—";
+    const activityLevel = p.quiz_responses?.activity_level?.replace(/_/g, " ") || "—";
+    const sleepQuality = p.quiz_responses?.sleep_quality
+      ? ["", "terrible", "poor", "fair", "good", "excellent"][parseInt(p.quiz_responses.sleep_quality)] || p.quiz_responses.sleep_quality
+      : "—";
+    const healthConditions = p.quiz_responses?.['health_conditions' as keyof QuizRecord] 
+      ? (p.quiz_responses['health_conditions' as keyof QuizRecord] as string[]).join("; ")
+      : "—";
+    const dateAdded = new Date(p.added_at).toLocaleDateString();
+    const lastNote = p.notes ? p.notes.substring(0, 100) + (p.notes.length > 100 ? "..." : "") : "—";
+
+    return [
+      displayName,
+      p.status,
+      protocolLabel,
+      score,
+      goals,
+      ageRange,
+      activityLevel,
+      sleepQuality,
+      healthConditions,
+      dateAdded,
+      lastNote,
+    ];
+  });
+
+  // Build CSV content
+  const csvContent = [
+    headers.join(","),
+    ...rows.map((row) =>
+      row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")
+    ),
+  ].join("\n");
+
+  // Trigger download
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const link = document.createElement("a");
+  const url = URL.createObjectURL(blob);
+  link.setAttribute("href", url);
+  link.setAttribute("download", `vyvata-patients-${practitionerName.replace(/\s+/g, "-").toLowerCase()}-${new Date().toISOString().split("T")[0]}.csv`);
+  link.style.visibility = "hidden";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface AuditRecord {
@@ -490,20 +561,39 @@ export default function PractitionerDashboardClient({
             <h2 className="text-base font-bold text-white" style={{ fontFamily: "Montserrat, sans-serif" }}>
               Patient Panel
             </h2>
-            <button
-              onClick={() => setShowAdd(true)}
-              className="flex items-center gap-1.5 text-sm font-semibold px-3.5 py-2 rounded-xl transition-all"
-              style={{
-                background: "linear-gradient(135deg, #14B8A6, #0F766E)",
-                color: "#fff",
-                fontFamily: "Montserrat, sans-serif",
-                boxShadow: "0 0 16px rgba(20,184,166,0.2)",
-              }}
-              data-testid="button-add"
-            >
-              <Plus size={14} />
-              Add Patient
-            </button>
+            <div className="flex items-center gap-2">
+              {patients.length > 0 && (
+                <button
+                  onClick={() => exportPatientsToCSV(patients, practitioner.name)}
+                  className="flex items-center gap-1.5 text-sm font-semibold px-3.5 py-2 rounded-xl transition-all hover:opacity-90"
+                  style={{
+                    background: "rgba(255,255,255,0.04)",
+                    color: "#14B8A6",
+                    border: "1px solid rgba(20,184,166,0.25)",
+                    fontFamily: "Montserrat, sans-serif",
+                  }}
+                  data-testid="button-export-csv"
+                  title="Export patient list to CSV"
+                >
+                  <Download size={14} />
+                  <span className="hidden sm:inline">Export CSV</span>
+                </button>
+              )}
+              <button
+                onClick={() => setShowAdd(true)}
+                className="flex items-center gap-1.5 text-sm font-semibold px-3.5 py-2 rounded-xl transition-all"
+                style={{
+                  background: "linear-gradient(135deg, #14B8A6, #0F766E)",
+                  color: "#fff",
+                  fontFamily: "Montserrat, sans-serif",
+                  boxShadow: "0 0 16px rgba(20,184,166,0.2)",
+                }}
+                data-testid="button-add"
+              >
+                <Plus size={14} />
+                Add Patient
+              </button>
+            </div>
           </div>
 
           {/* Search */}

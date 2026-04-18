@@ -78,16 +78,17 @@ export default function LandingPage() {
             Vyvata
           </span>
         </div>
-        <div className="hidden md:flex items-center gap-8 text-sm" style={{ color: "#C9D6DF" }}>
+        <div className="hidden md:flex items-center gap-6 text-sm" style={{ color: "#C9D6DF" }}>
           <a href="#how" className="hover:text-white transition-colors">How it works</a>
           <a href="#protocols" className="hover:text-white transition-colors">Protocols</a>
           <a href="#practitioners" className="hover:text-white transition-colors">Practitioners</a>
+          <a href="/signin" className="hover:text-white transition-colors">Sign in</a>
           <a
             href="/practitioner"
             className="hover:text-white transition-colors text-xs px-3 py-1.5 rounded-lg"
             style={{ background: "rgba(20,184,166,0.08)", border: "1px solid rgba(20,184,166,0.2)", color: "#14B8A6" }}
           >
-            Practitioner Login
+            Practitioner
           </a>
         </div>
         <button

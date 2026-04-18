@@ -6,10 +6,12 @@ import {
   ArrowLeft, ExternalLink, Moon, Activity, Utensils,
   Brain, Check, Edit3, Trash2, Save, X,
   BarChart3, ShieldCheck, Zap, Clock, Heart,
-  Footprints, Hourglass, User,
+  Footprints, Hourglass, User, Pause, Archive,
+  ChevronDown, AlertCircle, Download,
   type LucideIcon,
 } from "lucide-react";
 import { VyvataLogo } from "@/components/VyvataLogo";
+import type { PatientNote, PatientStatus } from "@/types";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface AuditRecord {
@@ -47,7 +49,7 @@ interface PatientDetail {
   session_id: string;
   patient_label: string | null;
   notes: string | null;
-  status: string;
+  status: PatientStatus;
   added_at: string;
   audits: AuditRecord | null;
   quiz_responses: QuizRecord | null;
@@ -59,6 +61,12 @@ const PROTOCOL_META: Record<string, { label: string; Icon: LucideIcon; color: st
   "deep-sleep-recovery":   { label: "Deep Sleep & Recovery", Icon: Moon,       color: "#60A5FA", tagline: "Sleep quality and overnight recovery." },
   "athletic-performance":  { label: "Athletic Performance",  Icon: Footprints, color: "#34D399", tagline: "Strength, endurance, and recovery velocity." },
   "longevity-foundation":  { label: "Longevity Foundation",  Icon: Hourglass,  color: "#F59E0B", tagline: "Cellular health and metabolic resilience." },
+};
+
+const STATUS_CONFIG: Record<PatientStatus, { label: string; Icon: LucideIcon; color: string }> = {
+  active: { label: "Active", Icon: Activity, color: "#34D399" },
+  paused: { label: "Paused", Icon: Pause, color: "#F59E0B" },
+  archived: { label: "Archived", Icon: Archive, color: "#7A90A8" },
 };
 
 function scoreColor(score: number) {
@@ -80,6 +88,25 @@ function InfoChip({ icon, label, value }: { icon: React.ReactNode; label: string
   );
 }
 
+function timeAgo(dateString: string): string {
+  const now = new Date();
+  const past = new Date(dateString);
+  const seconds = Math.floor((now.getTime() - past.getTime()) / 1000);
+  
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 4) return `${weeks}w ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo ago`;
+  return `${Math.floor(days / 365)}y ago`;
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function PatientDetailClient({
   linkId,
@@ -90,15 +117,25 @@ export default function PatientDetailClient({
 }) {
   const router = useRouter();
   const [patient, setPatient] = useState<PatientDetail | null>(null);
+  const [notes, setNotes] = useState<PatientNote[]>([]);
   const [loading, setLoading] = useState(true);
+  const [notesLoading, setNotesLoading] = useState(true);
   const [editingLabel, setEditingLabel] = useState(false);
   const [labelDraft, setLabelDraft] = useState("");
-  const [editingNotes, setEditingNotes] = useState(false);
-  const [notesDraft, setNotesDraft] = useState("");
   const [saving, setSaving] = useState(false);
   const [archiving, setArchiving] = useState(false);
-  const notesRef = useRef<HTMLTextAreaElement>(null);
+  const [newNoteText, setNewNoteText] = useState("");
+  const [addingNote, setAddingNote] = useState(false);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editNoteDraft, setEditNoteDraft] = useState("");
+  const [savingNoteId, setSavingNoteId] = useState<string | null>(null);
+  const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
+  const [statusMenuOpen, setStatusMenuOpen] = useState(false);
+  const [changingStatus, setChangingStatus] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const statusMenuRef = useRef<HTMLDivElement>(null);
 
+  // Fetch patient details
   useEffect(() => {
     const fetchPatient = async () => {
       try {
@@ -107,7 +144,6 @@ export default function PatientDetailClient({
         const data = await res.json();
         setPatient(data.patient);
         setLabelDraft(data.patient.patient_label ?? "");
-        setNotesDraft(data.patient.notes ?? "");
       } catch {
         router.push("/practitioner/dashboard");
       } finally {
@@ -117,30 +153,145 @@ export default function PatientDetailClient({
     fetchPatient();
   }, [linkId, router]);
 
-  const saveField = async (field: "label" | "notes") => {
+  // Fetch notes
+  useEffect(() => {
+    const fetchNotes = async () => {
+      try {
+        const res = await fetch(`/api/practitioner/patients/${linkId}/notes`);
+        if (res.ok) {
+          const data = await res.json();
+          setNotes(data.notes ?? []);
+        }
+      } catch (err) {
+        console.error("Failed to fetch notes:", err);
+      } finally {
+        setNotesLoading(false);
+      }
+    };
+    if (linkId) fetchNotes();
+  }, [linkId]);
+
+  // Close status menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (statusMenuRef.current && !statusMenuRef.current.contains(e.target as Node)) {
+        setStatusMenuOpen(false);
+      }
+    };
+    if (statusMenuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [statusMenuOpen]);
+
+  const saveLabel = async () => {
     if (!patient) return;
     setSaving(true);
+    setError(null);
     try {
-      await fetch(`/api/practitioner/patients/${linkId}`, {
+      const res = await fetch(`/api/practitioner/patients/${linkId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(
-          field === "label"
-            ? { label: labelDraft }
-            : { notes: notesDraft }
-        ),
+        body: JSON.stringify({ label: labelDraft }),
       });
-      setPatient((p) =>
-        p
-          ? { ...p, patient_label: field === "label" ? labelDraft : p.patient_label,
-                    notes: field === "notes" ? notesDraft : p.notes }
-          : p
-      );
-      if (field === "label") setEditingLabel(false);
-      if (field === "notes") setEditingNotes(false);
+      if (!res.ok) throw new Error("Failed to save label");
+      setPatient((p) => p ? { ...p, patient_label: labelDraft } : p);
+      setEditingLabel(false);
+    } catch (err) {
+      setError("Failed to save label. Please try again.");
     } finally {
       setSaving(false);
     }
+  };
+
+  const changeStatus = async (newStatus: PatientStatus) => {
+    if (!patient) return;
+    
+    // Confirmation for irreversible transitions
+    if (newStatus === "archived" && !confirm("Archive this patient? This action cannot be undone.")) {
+      setStatusMenuOpen(false);
+      return;
+    }
+    
+    setChangingStatus(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/practitioner/patients/${linkId}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (!res.ok) throw new Error("Failed to change status");
+      setPatient((p) => p ? { ...p, status: newStatus } : p);
+      setStatusMenuOpen(false);
+    } catch (err) {
+      setError("Failed to change status. Please try again.");
+    } finally {
+      setChangingStatus(false);
+    }
+  };
+
+  const addNote = async () => {
+    if (!newNoteText.trim()) return;
+    setAddingNote(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/practitioner/patients/${linkId}/notes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ note: newNoteText }),
+      });
+      if (!res.ok) throw new Error("Failed to add note");
+      const data = await res.json();
+      setNotes((prev) => [data.note, ...prev]);
+      setNewNoteText("");
+    } catch (err) {
+      setError("Failed to add note. Please try again.");
+    } finally {
+      setAddingNote(false);
+    }
+  };
+
+  const updateNote = async (noteId: string) => {
+    if (!editNoteDraft.trim()) return;
+    setSavingNoteId(noteId);
+    setError(null);
+    try {
+      const res = await fetch(`/api/practitioner/notes/${noteId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ note: editNoteDraft }),
+      });
+      if (!res.ok) throw new Error("Failed to update note");
+      const data = await res.json();
+      setNotes((prev) => prev.map((n) => (n.id === noteId ? data.note : n)));
+      setEditingNoteId(null);
+      setEditNoteDraft("");
+    } catch (err) {
+      setError("Failed to update note. Please try again.");
+    } finally {
+      setSavingNoteId(null);
+    }
+  };
+
+  const deleteNote = async (noteId: string) => {
+    if (!confirm("Delete this note?")) return;
+    setDeletingNoteId(noteId);
+    setError(null);
+    try {
+      const res = await fetch(`/api/practitioner/notes/${noteId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete note");
+      setNotes((prev) => prev.filter((n) => n.id !== noteId));
+    } catch (err) {
+      setError("Failed to delete note. Please try again.");
+    } finally {
+      setDeletingNoteId(null);
+    }
+  };
+
+  const exportPDF = () => {
+    // Open PDF export endpoint in new tab to trigger download
+    window.open(`/api/practitioner/patients/${linkId}/export-pdf`, "_blank");
   };
 
   const handleArchive = async () => {
@@ -168,6 +319,7 @@ export default function PatientDetailClient({
   const proto = quiz?.assigned_protocol_slug ? PROTOCOL_META[quiz.assigned_protocol_slug] : null;
   const teaser = audit?.teaser_json ? JSON.parse(audit.teaser_json) : null;
   const displayName = patient.patient_label || `Patient ${patient.id.slice(0, 6).toUpperCase()}`;
+  const statusInfo = STATUS_CONFIG[patient.status];
 
   return (
     <div className="min-h-dvh pb-16" style={{ background: "#0B1F3B", fontFamily: "Inter, sans-serif" }}>
@@ -190,23 +342,58 @@ export default function PatientDetailClient({
             </span>
           </div>
         </div>
-        <button
-          onClick={handleArchive}
-          disabled={archiving}
-          className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-opacity hover:opacity-80"
-          style={{ color: "#7A90A8", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
-          data-testid="button-archive"
-        >
-          <Trash2 size={12} />
-          Remove
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={exportPDF}
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-all hover:opacity-90"
+            style={{ 
+              color: "#14B8A6", 
+              background: "rgba(20,184,166,0.08)", 
+              border: "1px solid rgba(20,184,166,0.25)",
+              fontFamily: "Montserrat, sans-serif",
+              fontWeight: 600,
+            }}
+            data-testid="button-export-pdf"
+            title="Export protocol report as PDF"
+          >
+            <Download size={12} />
+            Export PDF
+          </button>
+          <button
+            onClick={handleArchive}
+            disabled={archiving}
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-opacity hover:opacity-80"
+            style={{ color: "#7A90A8", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
+            data-testid="button-archive"
+          >
+            <Trash2 size={12} />
+            Remove
+          </button>
+        </div>
       </header>
 
       <div className="max-w-2xl mx-auto px-5 py-8 space-y-6">
 
+        {/* Error message */}
+        {error && (
+          <div
+            className="rounded-xl p-4 flex items-start gap-3"
+            style={{ background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.25)" }}
+          >
+            <AlertCircle size={18} style={{ color: "#F87171", flexShrink: 0, marginTop: 2 }} />
+            <div>
+              <p className="text-sm font-semibold" style={{ color: "#FCA5A5" }}>Error</p>
+              <p className="text-xs" style={{ color: "#F87171" }}>{error}</p>
+            </div>
+            <button onClick={() => setError(null)} className="ml-auto" style={{ color: "#7A90A8" }}>
+              <X size={14} />
+            </button>
+          </div>
+        )}
+
         {/* ── Patient header ── */}
         <div className="flex items-start justify-between gap-4">
-          <div className="flex items-start gap-3">
+          <div className="flex items-start gap-3 flex-1">
             {/* Avatar */}
             <div
               className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shrink-0"
@@ -218,7 +405,7 @@ export default function PatientDetailClient({
               {proto ? <proto.Icon size={22} strokeWidth={1.75} /> : <User size={22} strokeWidth={1.75} />}
             </div>
 
-            <div className="space-y-1">
+            <div className="space-y-2 flex-1">
               {/* Editable label */}
               {editingLabel ? (
                 <div className="flex items-center gap-2">
@@ -228,10 +415,10 @@ export default function PatientDetailClient({
                     onChange={(e) => setLabelDraft(e.target.value)}
                     className="text-lg font-black bg-transparent outline-none border-b text-white"
                     style={{ fontFamily: "Montserrat, sans-serif", borderColor: "#14B8A6" }}
-                    onKeyDown={(e) => { if (e.key === "Enter") saveField("label"); if (e.key === "Escape") setEditingLabel(false); }}
+                    onKeyDown={(e) => { if (e.key === "Enter") saveLabel(); if (e.key === "Escape") setEditingLabel(false); }}
                     data-testid="input-patient-label"
                   />
-                  <button onClick={() => saveField("label")} disabled={saving} style={{ color: "#14B8A6" }}>
+                  <button onClick={saveLabel} disabled={saving} style={{ color: "#14B8A6" }}>
                     <Save size={14} />
                   </button>
                   <button onClick={() => setEditingLabel(false)} style={{ color: "#7A90A8" }}>
@@ -250,6 +437,51 @@ export default function PatientDetailClient({
               )}
 
               <div className="flex items-center gap-2 flex-wrap">
+                {/* Status badge with dropdown */}
+                <div className="relative" ref={statusMenuRef}>
+                  <button
+                    onClick={() => setStatusMenuOpen(!statusMenuOpen)}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full transition-opacity hover:opacity-80"
+                    style={{ background: `${statusInfo.color}20`, color: statusInfo.color, border: `1px solid ${statusInfo.color}40` }}
+                    data-testid="button-status"
+                  >
+                    <statusInfo.Icon size={11} strokeWidth={2} />
+                    {statusInfo.label}
+                    <ChevronDown size={10} className={`transition-transform ${statusMenuOpen ? "rotate-180" : ""}`} />
+                  </button>
+                  
+                  {statusMenuOpen && (
+                    <div
+                      className="absolute top-full left-0 mt-1 rounded-xl overflow-hidden z-10 shadow-xl"
+                      style={{ background: "rgba(17,32,64,0.98)", border: "1px solid rgba(201,214,223,0.12)", minWidth: 140 }}
+                    >
+                      {(["active", "paused", "archived"] as PatientStatus[]).map((status) => {
+                        const config = STATUS_CONFIG[status];
+                        const isCurrent = patient.status === status;
+                        return (
+                          <button
+                            key={status}
+                            onClick={() => changeStatus(status)}
+                            disabled={isCurrent || changingStatus}
+                            className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-medium transition-all"
+                            style={{
+                              background: isCurrent ? `${config.color}15` : "transparent",
+                              color: isCurrent ? config.color : "#C9D6DF",
+                              opacity: isCurrent ? 0.6 : 1,
+                              cursor: isCurrent ? "default" : "pointer",
+                            }}
+                            data-testid={`status-option-${status}`}
+                          >
+                            <config.Icon size={12} strokeWidth={1.75} />
+                            {config.label}
+                            {isCurrent && <Check size={11} className="ml-auto" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
                 {proto && (
                   <span className="inline-flex items-center gap-1 text-xs font-medium" style={{ color: proto.color }}>
                     <proto.Icon size={12} strokeWidth={1.75} />
@@ -399,71 +631,139 @@ export default function PatientDetailClient({
 
         {/* ── Practitioner notes ── */}
         <div
-          className="rounded-xl p-5 space-y-3"
+          className="rounded-xl p-5 space-y-4"
           style={{ background: "rgba(17,32,64,0.6)", border: "1px solid rgba(201,214,223,0.08)" }}
         >
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "#7A90A8" }}>
-              Practitioner Notes
+          <div className="flex items-center gap-2">
+            <img src="/icons/Keep a Journal.svg" alt="" className="w-5 h-5 opacity-80" style={{ filter: "invert(62%) sepia(11%) saturate(1135%) hue-rotate(153deg) brightness(95%) contrast(89%)" }} />
+            <p className="text-xs font-semibold uppercase tracking-widest flex-1" style={{ color: "#7A90A8" }}>
+              Patient Notes Timeline
             </p>
-            {!editingNotes && (
-              <button
-                onClick={() => { setEditingNotes(true); setTimeout(() => notesRef.current?.focus(), 50); }}
-                className="flex items-center gap-1 text-xs transition-opacity hover:opacity-80"
-                style={{ color: "#14B8A6" }}
-              >
-                <Edit3 size={11} /> Edit
-              </button>
-            )}
           </div>
 
-          {editingNotes ? (
-            <div className="space-y-2">
-              <textarea
-                ref={notesRef}
-                value={notesDraft}
-                onChange={(e) => setNotesDraft(e.target.value)}
-                rows={5}
-                placeholder="Clinical observations, follow-up items, dosing adjustments..."
-                className="w-full px-4 py-3 rounded-xl text-sm resize-none outline-none"
-                style={{
-                  background: "rgba(255,255,255,0.05)",
-                  border: "1px solid rgba(20,184,166,0.35)",
-                  color: "#E8F0F5",
-                  lineHeight: 1.6,
-                }}
-                data-testid="textarea-notes"
-              />
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => saveField("notes")}
-                  disabled={saving}
-                  className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl"
-                  style={{ background: "linear-gradient(135deg, #14B8A6, #0F766E)", color: "#fff", fontFamily: "Montserrat, sans-serif" }}
-                  data-testid="button-save-notes"
-                >
-                  <Save size={13} /> {saving ? "Saving..." : "Save Notes"}
-                </button>
-                <button
-                  onClick={() => { setEditingNotes(false); setNotesDraft(patient.notes ?? ""); }}
-                  className="text-sm px-3 py-2 rounded-xl"
-                  style={{ color: "#7A90A8", background: "rgba(255,255,255,0.04)" }}
-                >
-                  Cancel
-                </button>
-              </div>
+          {/* Add note form */}
+          <div className="space-y-2">
+            <textarea
+              value={newNoteText}
+              onChange={(e) => setNewNoteText(e.target.value)}
+              rows={3}
+              placeholder="Add clinical observation, follow-up item, or dosing adjustment..."
+              className="w-full px-4 py-3 rounded-xl text-sm resize-none outline-none"
+              style={{
+                background: "rgba(255,255,255,0.05)",
+                border: "1px solid rgba(201,214,223,0.12)",
+                color: "#E8F0F5",
+                lineHeight: 1.6,
+              }}
+              data-testid="textarea-new-note"
+            />
+            <button
+              onClick={addNote}
+              disabled={addingNote || !newNoteText.trim()}
+              className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl disabled:opacity-50"
+              style={{ background: "linear-gradient(135deg, #14B8A6, #0F766E)", color: "#fff", fontFamily: "Montserrat, sans-serif" }}
+              data-testid="button-add-note"
+            >
+              <Save size={13} /> {addingNote ? "Adding..." : "Add Note"}
+            </button>
+          </div>
+
+          {/* Notes timeline */}
+          {notesLoading ? (
+            <div className="text-center py-8">
+              <p className="text-sm" style={{ color: "#4a6080" }}>Loading notes...</p>
+            </div>
+          ) : notes.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-sm italic" style={{ color: "#4a6080" }}>No notes yet. Add your first clinical observation above.</p>
             </div>
           ) : (
-            <div>
-              {patient.notes ? (
-                <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "#C9D6DF" }}>
-                  {patient.notes}
-                </p>
-              ) : (
-                <p className="text-sm italic" style={{ color: "#4a6080" }}>
-                  No notes yet. Click Edit to add clinical observations.
-                </p>
-              )}
+            <div className="space-y-3 mt-4">
+              {notes.map((note) => {
+                const isEditing = editingNoteId === note.id;
+                const isDeleting = deletingNoteId === note.id;
+                const isSaving = savingNoteId === note.id;
+
+                return (
+                  <div
+                    key={note.id}
+                    className="rounded-xl p-4 space-y-2"
+                    style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(201,214,223,0.06)" }}
+                    data-testid={`note-${note.id}`}
+                  >
+                    {isEditing ? (
+                      <div className="space-y-2">
+                        <textarea
+                          autoFocus
+                          value={editNoteDraft}
+                          onChange={(e) => setEditNoteDraft(e.target.value)}
+                          rows={3}
+                          className="w-full px-3 py-2 rounded-lg text-sm resize-none outline-none"
+                          style={{
+                            background: "rgba(255,255,255,0.05)",
+                            border: "1px solid rgba(20,184,166,0.35)",
+                            color: "#E8F0F5",
+                            lineHeight: 1.6,
+                          }}
+                          data-testid={`textarea-edit-note-${note.id}`}
+                        />
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => updateNote(note.id)}
+                            disabled={isSaving || !editNoteDraft.trim()}
+                            className="flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg"
+                            style={{ background: "#14B8A6", color: "#fff" }}
+                            data-testid={`button-save-edit-${note.id}`}
+                          >
+                            <Save size={11} /> {isSaving ? "Saving..." : "Save"}
+                          </button>
+                          <button
+                            onClick={() => { setEditingNoteId(null); setEditNoteDraft(""); }}
+                            className="text-xs px-2.5 py-1.5 rounded-lg"
+                            style={{ color: "#7A90A8", background: "rgba(255,255,255,0.04)" }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-start justify-between gap-3">
+                          <p className="text-sm leading-relaxed whitespace-pre-wrap flex-1" style={{ color: "#C9D6DF" }}>
+                            {note.note}
+                          </p>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              onClick={() => { setEditingNoteId(note.id); setEditNoteDraft(note.note); }}
+                              className="p-1.5 rounded-lg transition-opacity hover:opacity-80"
+                              style={{ color: "#7A90A8" }}
+                              data-testid={`button-edit-note-${note.id}`}
+                            >
+                              <Edit3 size={12} />
+                            </button>
+                            <button
+                              onClick={() => deleteNote(note.id)}
+                              disabled={isDeleting}
+                              className="p-1.5 rounded-lg transition-opacity hover:opacity-80"
+                              style={{ color: "#F87171" }}
+                              data-testid={`button-delete-note-${note.id}`}
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs" style={{ color: "#4a6080" }}>
+                          <Clock size={10} />
+                          <span>{timeAgo(note.created_at)}</span>
+                          {note.updated_at !== note.created_at && (
+                            <span className="opacity-60">(edited {timeAgo(note.updated_at)})</span>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

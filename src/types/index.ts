@@ -110,3 +110,13 @@ export interface AuditRow {
   is_unlocked: boolean;
   created_at: string;
 }
+
+// Patient management (Phase 3)
+export type PatientStatus = "active" | "paused" | "archived";
+
+export interface PatientNote {
+  id: string;
+  note: string;
+  created_at: string;
+  updated_at: string;
+}

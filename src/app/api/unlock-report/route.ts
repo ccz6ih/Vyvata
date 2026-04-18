@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getSupabaseServer } from "@/lib/supabase";
+import { getCurrentUser } from "@/lib/supabase-auth";
 import { parseStackText } from "@/lib/stack-parser";
 import { runRulesEngine } from "@/lib/rules-engine";
 import type { Goal, ReportSection } from "@/types";
@@ -62,13 +63,15 @@ export async function POST(req: NextRequest) {
       created_via: "email_gate",
     }, { onConflict: "email" });
 
-    // Update audit with email, unlock, report
+    const user = await getCurrentUser();
+
     const { error: updateError } = await supabase
       .from("audits")
       .update({
         email,
         is_unlocked: true,
         report_json: JSON.stringify(report),
+        ...(user ? { user_id: user.id } : {}),
       })
       .eq("id", auditId);
 
