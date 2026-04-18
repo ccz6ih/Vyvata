@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { VyvataLogo } from "@/components/VyvataLogo";
 import PractitionerNav from "@/components/PractitionerNav";
+import type { PractitionerSession } from "@/lib/practitioner-auth";
 import {
   BarChart,
   Bar,
@@ -54,7 +55,7 @@ const PIE_COLORS = [
   "#06B6D4",
 ];
 
-export default function AnalyticsClient({ practitioner }: { practitioner: any }) {
+export default function AnalyticsClient({ practitioner }: { practitioner: PractitionerSession }) {
   const [analytics, setAnalytics] = useState<CohortAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -123,7 +124,7 @@ export default function AnalyticsClient({ practitioner }: { practitioner: any })
         </div>
         <PractitionerNav />
         <div className="flex items-center gap-2" style={{ color: "#7A90A8", fontSize: "13px" }}>
-          <span>{practitioner.user.email}</span>
+          <span>{practitioner.email}</span>
         </div>
       </header>
 
