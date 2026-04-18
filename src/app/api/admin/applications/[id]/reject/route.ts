@@ -1,24 +1,17 @@
 // POST /api/admin/applications/[id]/reject
 // Body: { reason?: string }
-// Protected by Authorization: Bearer <VYVATA_ADMIN_SECRET>
+// Protected by the vv_admin_session cookie (set via /admin/login).
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase";
 import { Resend } from "resend";
-
-function checkAuth(req: NextRequest): boolean {
-  const adminSecret = process.env.VYVATA_ADMIN_SECRET;
-  if (!adminSecret) return false;
-  const authHeader = req.headers.get("authorization") || "";
-  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
-  return token === adminSecret;
-}
+import { hasAdminSession } from "@/lib/admin-auth";
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!checkAuth(req)) {
+  if (!(await hasAdminSession())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

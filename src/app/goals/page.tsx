@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import Image from "next/image";
 import { ArrowRight, ArrowLeft, Moon, Zap, Brain, Flame, Hourglass, Dumbbell, RefreshCw } from "lucide-react";
 import type { Goal, GoalOption } from "@/types";
 import { VyvataLogo } from "@/components/VyvataLogo";
@@ -77,8 +78,18 @@ export default function GoalsPage() {
         </div>
       </header>
 
-      <section className="flex-1 flex flex-col items-center justify-center px-6 py-16 max-w-xl mx-auto w-full">
+      <section className="flex-1 flex flex-col items-center justify-center px-6 py-12 max-w-xl mx-auto w-full">
         <div className="w-full space-y-8">
+          <div className="flex justify-center opacity-90">
+            <Image
+              src="/icons/Set Your Goals.svg"
+              alt=""
+              width={200}
+              height={200}
+              priority
+              className="pointer-events-none select-none"
+            />
+          </div>
           <div className="space-y-2">
             <p
               className="text-xs font-semibold tracking-widest"

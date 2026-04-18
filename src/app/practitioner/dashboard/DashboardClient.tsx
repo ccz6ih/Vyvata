@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   Users, BarChart3, Brain, Moon, Zap, Clock,
@@ -538,8 +539,20 @@ export default function PractitionerDashboardClient({
               className="rounded-xl p-10 text-center space-y-3"
               style={{ background: "rgba(17,32,64,0.4)", border: "1px dashed rgba(201,214,223,0.12)" }}
             >
-              <div className="flex justify-center" style={{ color: "#14B8A6" }}>
-                <Stethoscope size={32} strokeWidth={1.5} />
+              <div className="flex justify-center">
+                {search ? (
+                  <div style={{ color: "#14B8A6" }}>
+                    <Stethoscope size={32} strokeWidth={1.5} />
+                  </div>
+                ) : (
+                  <Image
+                    src="/icons/Supplements.svg"
+                    alt=""
+                    width={140}
+                    height={140}
+                    className="opacity-90 pointer-events-none select-none"
+                  />
+                )}
               </div>
               <p className="text-sm font-semibold text-white" style={{ fontFamily: "Montserrat, sans-serif" }}>
                 {search ? "No patients match your search" : "No patients yet"}

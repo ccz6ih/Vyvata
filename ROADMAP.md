@@ -105,16 +105,20 @@ Low-risk cleanup completed 2026-04-18.
 - [x] Probe Supabase — all 10 tables exist; `protocols`/`outcomes`/`referrals` provisioned for future phases
 - [x] Fix missing `increment_patient_count` RPC — recompute from `patient_links` on add/archive
 
-### Phase 1 — Security & polish MVP (1–2 weeks)
-Ship-ready hardening before any real traffic.
+### Phase 1 — Security & polish MVP ✅ In-code work done (2026-04-18)
+Ship-ready hardening. Code-side shipped; three items below need your action.
 
-- [ ] Move admin auth off query-param: cookie-based admin session or Basic Auth behind a separate `/admin/login`
-- [ ] Rate limit `/api/practitioner/auth` and `/api/practitioner/register` (Upstash or Supabase edge functions)
-- [ ] Set `OPENAI_API_KEY` in Vercel env; A/B the LLM report vs deterministic fallback on a handful of cases
-- [ ] Practitioner "lost access code" flow: email a new code, invalidate old one
-- [ ] Wire a few of the 56 uploaded SVGs into hero areas (goals page backdrop, quiz splash, empty states)
-- [ ] Email deliverability check: SPF/DKIM for Resend sending domain
-- [ ] Add Sentry (or similar) for runtime errors
+**Done in code:**
+- [x] Admin auth off query-param → cookie-based `/admin/login` with HttpOnly session cookie. Logout button in admin header. Bearer-header check replaced with `hasAdminSession()` on all admin API routes.
+- [x] Rate limiting on `/api/practitioner/auth` (5/15min per IP+email), `/api/practitioner/register` (3/hr per IP), `/api/admin/auth` (5/15min per IP). In-memory sliding window; swap to shared store when deploying multi-instance.
+- [x] Lost-access-code flow: `/practitioner/recover` + `POST /api/practitioner/recover`. Issues a new code, invalidates all active sessions, sends email. Always returns a generic success message (prevents email enumeration).
+- [x] Hero SVGs wired: `Set Your Goals.svg` on `/goals`, `Supplements.svg` on dashboard empty state.
+
+**Needs your action** (external to repo):
+- [ ] Add `VYVATA_ADMIN_SECRET` to `.env.local` — admin console returns 401 until this is set. Generate with `openssl rand -hex 32`.
+- [ ] Set `OPENAI_API_KEY` — enables GPT-4o synthesis path; without it the deterministic fallback runs. Sample 5–10 reports both ways to confirm quality lift before committing to the cost.
+- [ ] Verify Resend sender domain — `hello@vyvata.com` is used in approval/recovery emails; check SPF/DKIM/DMARC are green in the Resend dashboard so mail doesn't go to spam.
+- [ ] Add Sentry (or similar) runtime error reporting — create project, set `SENTRY_DSN`, wrap app with SDK. Deferred until real traffic.
 
 ### Phase 2 — Clinical depth (2–4 weeks)
 Make the engine defensible.

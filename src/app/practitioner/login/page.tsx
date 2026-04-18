@@ -190,6 +190,14 @@ export default function PractitionerLoginPage() {
               </>
             )}
           </button>
+
+          <a
+            href="/practitioner/recover"
+            className="block text-center text-xs underline-offset-2 hover:underline"
+            style={{ color: "#7A90A8", fontFamily: "Inter, sans-serif" }}
+          >
+            Lost your access code?
+          </a>
         </form>
 
         {/* Demo hint */}

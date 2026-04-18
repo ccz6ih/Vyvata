@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   CheckCircle2, XCircle, Clock, ChevronDown, ChevronUp,
   RefreshCw, Users, ClipboardList, ShieldCheck, AlertTriangle,
-  ExternalLink, Mail, Building2, Stethoscope, Globe, User,
+  ExternalLink, Mail, Building2, Stethoscope, Globe, User, LogOut,
 } from "lucide-react";
 import { VyvataLogo } from "@/components/VyvataLogo";
 
@@ -163,11 +164,9 @@ function RejectModal({
 // ── Application card ──────────────────────────────────────────────────────────
 function AppCard({
   prac,
-  secret,
   onRefresh,
 }: {
   prac: Practitioner;
-  secret: string;
   onRefresh: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -186,7 +185,6 @@ function AppCard({
     try {
       const res = await fetch(`/api/admin/applications/${prac.id}/approve`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${secret}` },
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed");
@@ -205,7 +203,7 @@ function AppCard({
     try {
       const res = await fetch(`/api/admin/applications/${prac.id}/reject`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${secret}`, "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ reason }),
       });
       const data = await res.json();
@@ -409,7 +407,8 @@ function Detail({ icon: Icon, label, value }: { icon: React.ElementType; label: 
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function AdminClient({ secret }: { secret: string }) {
+export default function AdminClient() {
+  const router = useRouter();
   const [data, setData] = useState<AppData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -420,9 +419,11 @@ export default function AdminClient({ secret }: { secret: string }) {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/admin/applications", {
-        headers: { Authorization: `Bearer ${secret}` },
-      });
+      const res = await fetch("/api/admin/applications");
+      if (res.status === 401) {
+        router.replace("/admin/login");
+        return;
+      }
       if (!res.ok) throw new Error("Failed to load applications");
       const json = await res.json();
       setData(json);
@@ -432,7 +433,12 @@ export default function AdminClient({ secret }: { secret: string }) {
     } finally {
       setLoading(false);
     }
-  }, [secret]);
+  }, [router]);
+
+  const handleLogout = async () => {
+    await fetch("/api/admin/auth", { method: "DELETE" });
+    router.replace("/admin/login");
+  };
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -490,6 +496,15 @@ export default function AdminClient({ secret }: { secret: string }) {
           >
             <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
             Refresh
+          </button>
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+            style={{ background: "rgba(255,255,255,0.05)", color: "#7A90A8" }}
+            data-testid="button-admin-logout"
+          >
+            <LogOut size={12} />
+            Sign out
           </button>
         </div>
       </header>
@@ -614,7 +629,7 @@ export default function AdminClient({ secret }: { secret: string }) {
             )}
 
             {list.map((prac) => (
-              <AppCard key={prac.id} prac={prac} secret={secret} onRefresh={fetchData} />
+              <AppCard key={prac.id} prac={prac} onRefresh={fetchData} />
             ))}
           </div>
         )}

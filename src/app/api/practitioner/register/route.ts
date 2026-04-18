@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getSupabaseServer } from "@/lib/supabase";
 import { Resend } from "resend";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 // ── Zod schema ────────────────────────────────────────────────────────────────
 const RegisterSchema = z.object({
@@ -32,6 +33,18 @@ function generateAccessCode(): string {
 // ── Handler ───────────────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   try {
+    const ip = getClientIp(req);
+    const rl = checkRateLimit(`prac-register:${ip}`, {
+      max: 3,
+      windowMs: 60 * 60_000,
+    });
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: "Too many applications from this network. Try again later." },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfterSeconds) } }
+      );
+    }
+
     const body = await req.json();
     const parsed = RegisterSchema.safeParse(body);
     if (!parsed.success) {

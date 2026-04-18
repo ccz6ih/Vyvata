@@ -1,20 +1,13 @@
 // GET /api/admin/applications
-// Returns all practitioners, grouped / sortable by verification_status.
-// Protected by Authorization: Bearer <VYVATA_ADMIN_SECRET>
+// Returns all practitioners, grouped by verification_status.
+// Protected by the vv_admin_session cookie (set via /admin/login).
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase";
+import { hasAdminSession } from "@/lib/admin-auth";
 
-function checkAuth(req: NextRequest): boolean {
-  const adminSecret = process.env.VYVATA_ADMIN_SECRET;
-  if (!adminSecret) return false;
-  const authHeader = req.headers.get("authorization") || "";
-  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
-  return token === adminSecret;
-}
-
-export async function GET(req: NextRequest) {
-  if (!checkAuth(req)) {
+export async function GET() {
+  if (!(await hasAdminSession())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

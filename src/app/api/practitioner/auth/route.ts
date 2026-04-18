@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createPractitionerSession, revokePractitionerSession, COOKIE_NAME, COOKIE_MAX_AGE } from "@/lib/practitioner-auth";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 const LoginSchema = z.object({
   email:      z.string().email(),
@@ -16,6 +17,18 @@ export async function POST(req: NextRequest) {
     const parsed = LoginSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+    }
+
+    const ip = getClientIp(req);
+    const rl = checkRateLimit(`prac-auth:${ip}:${parsed.data.email.toLowerCase()}`, {
+      max: 5,
+      windowMs: 15 * 60_000,
+    });
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: "Too many attempts. Try again later.", code: "rate_limited" },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfterSeconds) } }
+      );
     }
 
     const result = await createPractitionerSession(parsed.data.email, parsed.data.accessCode);
