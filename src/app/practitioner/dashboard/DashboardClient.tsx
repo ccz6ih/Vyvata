@@ -4,14 +4,11 @@ import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
-  Users, BarChart3, Brain, Moon, Zap, Clock,
-  LogOut, Plus, ChevronRight, Search, X,
-  Stethoscope, TrendingUp, Activity, Download,
-  Footprints, Hourglass, User,
-  type LucideIcon,
+  LogOut, Plus, ChevronRight, Search, X, BarChart3, Download,
 } from "lucide-react";
 import type { PractitionerSession } from "@/lib/practitioner-auth";
 import { VyvataLogo } from "@/components/VyvataLogo";
+import PractitionerNav from "@/components/PractitionerNav";
 
 // ── CSV Export Helper ─────────────────────────────────────────────────────────
 function exportPatientsToCSV(patients: PatientLink[], practitionerName: string) {
@@ -119,11 +116,11 @@ interface PatientLink {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-const PROTOCOL_LABELS: Record<string, { label: string; Icon: LucideIcon; color: string }> = {
-  "cognitive-performance": { label: "Cognitive",   Icon: Brain,      color: "#818CF8" },
-  "deep-sleep-recovery":   { label: "Sleep",       Icon: Moon,       color: "#60A5FA" },
-  "athletic-performance":  { label: "Performance", Icon: Footprints, color: "#34D399" },
-  "longevity-foundation":  { label: "Longevity",   Icon: Hourglass,  color: "#F59E0B" },
+const PROTOCOL_LABELS: Record<string, { label: string; icon: string; color: string }> = {
+  "cognitive-performance": { label: "Cognitive",   icon: "/icons/Read a Good Book.svg",      color: "#818CF8" },
+  "deep-sleep-recovery":   { label: "Sleep",       icon: "/icons/Get Enough Sleep.svg",       color: "#60A5FA" },
+  "athletic-performance":  { label: "Performance", icon: "/icons/Start Running.svg", color: "#34D399" },
+  "longevity-foundation":  { label: "Longevity",   icon: "/icons/Healthy Diet.svg",  color: "#F59E0B" },
 };
 
 function scoreColor(score: number) {
@@ -294,7 +291,7 @@ function PatientCard({ patient, onClick }: { patient: PatientLink; onClick: () =
               color: proto?.color ?? "#14B8A6",
             }}
           >
-            {proto ? <proto.Icon size={18} strokeWidth={1.75} /> : <User size={18} strokeWidth={1.75} />}
+            <img src={proto?.icon ?? "/icons/Set Your Goals.svg"} alt="" className="w-5 h-5" style={{ filter: "brightness(0) saturate(100%)" }} />
           </div>
 
           <div className="min-w-0">
@@ -336,12 +333,12 @@ function PatientCard({ patient, onClick }: { patient: PatientLink; onClick: () =
         style={{ borderTop: "1px solid rgba(201,214,223,0.06)" }}>
         {quiz?.avg_sleep_hours && (
           <span className="flex items-center gap-1 text-xs" style={{ color: "#7A90A8" }}>
-            <Moon size={10} /> {quiz.avg_sleep_hours}h sleep
+            <img src="/icons/Get Enough Sleep.svg" alt="" className="w-2.5 h-2.5" style={{ filter: "brightness(0.7)" }} /> {quiz.avg_sleep_hours}h sleep
           </span>
         )}
         {quiz?.activity_level && (
           <span className="flex items-center gap-1 text-xs capitalize" style={{ color: "#7A90A8" }}>
-            <Activity size={10} /> {quiz.activity_level.replace(/_/g, " ")}
+            <img src="/icons/Stay Fit.svg" alt="" className="w-2.5 h-2.5" style={{ filter: "brightness(0.7)" }} /> {quiz.activity_level.replace(/_/g, " ")}
           </span>
         )}
         <span className="ml-auto text-xs" style={{ color: "#4a6080" }}>
@@ -424,10 +421,10 @@ export default function PractitionerDashboardClient({
       >
         <div className="flex items-center gap-3">
           <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center"
+            className="w-12 h-12 rounded-lg flex items-center justify-center"
             style={{ background: "rgba(20,184,166,0.12)", border: "1px solid rgba(20,184,166,0.2)" }}
           >
-            <Stethoscope size={14} style={{ color: "#14B8A6" }} />
+            <img src="/icons/Set Your Goals.svg" alt="" className="w-8 h-8" style={{ filter: "brightness(0) saturate(100%) invert(70%) sepia(35%) saturate(1000%) hue-rotate(130deg) brightness(95%) contrast(90%)" }} />
           </div>
           <div>
             <div className="flex items-center gap-1.5">
@@ -439,6 +436,8 @@ export default function PractitionerDashboardClient({
             <p className="text-xs" style={{ color: "#7A90A8" }}>Practitioner Portal</p>
           </div>
         </div>
+
+        <PractitionerNav />
 
         <div className="flex items-center gap-3">
           <div className="hidden sm:block text-right">
@@ -480,21 +479,21 @@ export default function PractitionerDashboardClient({
           <div className="grid grid-cols-3 gap-3">
             {[
               {
-                icon: Users,
+                icon: "/icons/Set Your Goals.svg",
                 label: "Patients",
                 value: patients.length.toString(),
                 sub: "in panel",
                 color: "#14B8A6",
               },
               {
-                icon: BarChart3,
+                icon: "/icons/Measure Your Fitness Progress.svg",
                 label: "Avg Score",
                 value: patients.filter(p => p.audits).length > 0 ? `${avgScore}` : "—",
                 sub: "/ 100",
                 color: avgScore >= 70 ? "#34D399" : avgScore >= 50 ? "#F59E0B" : "#F87171",
               },
               {
-                icon: TrendingUp,
+                icon: "/icons/Healthy Diet Plans.svg",
                 label: "Top Protocol",
                 value: topProtocol ? PROTOCOL_LABELS[topProtocol]?.label ?? topProtocol : "—",
                 sub: topProtocol ? "most common" : "none yet",
@@ -503,10 +502,17 @@ export default function PractitionerDashboardClient({
             ].map((stat) => (
               <div
                 key={stat.label}
-                className="rounded-xl p-4 space-y-1"
+                className="rounded-xl p-4 space-y-2"
                 style={{ background: "rgba(17,32,64,0.6)", border: "1px solid rgba(201,214,223,0.08)" }}
               >
-                <stat.icon size={14} style={{ color: stat.color }} />
+                <img 
+                  src={stat.icon} 
+                  alt="" 
+                  className="w-12 h-12" 
+                  style={{ 
+                    filter: "brightness(0) saturate(100%) invert(70%) sepia(35%) saturate(1000%) hue-rotate(130deg) brightness(95%) contrast(90%)"
+                  }} 
+                />
                 <div className="text-2xl font-black" style={{ color: stat.color, fontFamily: "Montserrat, sans-serif" }}>
                   {stat.value}
                 </div>
@@ -536,7 +542,7 @@ export default function PractitionerDashboardClient({
                     <div key={slug} className="space-y-1">
                       <div className="flex items-center justify-between text-xs">
                         <span className="flex items-center gap-1.5" style={{ color: "#C9D6DF" }}>
-                          {proto && <proto.Icon size={12} strokeWidth={1.75} style={{ color: proto.color }} />}
+                          {proto && <img src={proto.icon} alt="" className="w-5 h-5" style={{ filter: "brightness(0) saturate(100%) invert(90%) sepia(10%) saturate(200%) hue-rotate(180deg) brightness(100%) contrast(90%)" }} />}
                           <span>{proto?.label ?? slug}</span>
                         </span>
                         <span style={{ color: proto?.color ?? "#14B8A6" }}>{count} ({pct}%)</span>
@@ -648,9 +654,7 @@ export default function PractitionerDashboardClient({
             >
               <div className="flex justify-center">
                 {search ? (
-                  <div style={{ color: "#14B8A6" }}>
-                    <Stethoscope size={32} strokeWidth={1.5} />
-                  </div>
+                  <img src="/icons/Set Your Goals.svg" alt="" className="w-8 h-8" style={{ filter: "brightness(0.5)" }} />
                 ) : (
                   <Image
                     src="/icons/Supplements.svg"
@@ -703,7 +707,7 @@ export default function PractitionerDashboardClient({
           <div className="grid grid-cols-2 gap-2">
             {Object.entries(PROTOCOL_LABELS).map(([slug, meta]) => (
               <div key={slug} className="flex items-center gap-2 text-xs">
-                <meta.Icon size={14} strokeWidth={1.75} style={{ color: meta.color }} />
+                <img src={meta.icon} alt="" className="w-6 h-6" style={{ filter: "brightness(0) saturate(100%) invert(70%) sepia(35%) saturate(1000%) hue-rotate(130deg) brightness(95%) contrast(90%)" }} />
                 <span style={{ color: meta.color }}>{meta.label}</span>
               </div>
             ))}

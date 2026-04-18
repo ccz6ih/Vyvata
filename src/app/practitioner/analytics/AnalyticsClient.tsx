@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { VyvataLogo } from "@/components/VyvataLogo";
+import PractitionerNav from "@/components/PractitionerNav";
 import {
   BarChart,
   Bar,
@@ -110,7 +111,7 @@ export default function AnalyticsClient({ practitioner }: { practitioner: any })
         }}
       >
         <div className="flex items-center gap-3">
-          <Link href="/practitioner/dashboard" className="p-1.5 rounded-lg" style={{ color: "#7A90A8" }}>
+          <Link href="/practitioner/dashboard" className="p-1.5 rounded-lg md:hidden" style={{ color: "#7A90A8" }}>
             <ArrowLeft size={18} />
           </Link>
           <div className="flex items-center gap-2">
@@ -120,6 +121,7 @@ export default function AnalyticsClient({ practitioner }: { practitioner: any })
             </span>
           </div>
         </div>
+        <PractitionerNav />
         <div className="flex items-center gap-2" style={{ color: "#7A90A8", fontSize: "13px" }}>
           <span>{practitioner.user.email}</span>
         </div>
