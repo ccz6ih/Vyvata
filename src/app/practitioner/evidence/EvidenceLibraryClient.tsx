@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Search, BookOpen, Pill, Users, AlertTriangle, CheckCircle } from "lucide-react";
 import { VyvataLogo } from "@/components/VyvataLogo";
+import PractitionerNav from "@/components/PractitionerNav";
 import { EvidenceSummaryCard } from "@/components/EvidenceSummaryCard";
 import {
   EVIDENCE_SUMMARIES,
@@ -59,20 +60,23 @@ export default function EvidenceLibraryClient() {
         }}
       >
         <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <button
-            onClick={() => router.back()}
-            className="flex items-center gap-2 text-sm font-semibold hover:opacity-80 transition-opacity"
-            style={{ color: "#14B8A6" }}
-          >
-            <ArrowLeft size={16} />
-            <span>Back to Dashboard</span>
-          </button>
-          <div className="flex items-center gap-2">
-            <VyvataLogo size={16} />
-            <span className="text-xs font-bold tracking-widest" style={{ color: "#14B8A6", fontFamily: "Montserrat, sans-serif" }}>
-              EVIDENCE LIBRARY
-            </span>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => router.back()}
+              className="flex items-center gap-1.5 text-sm hover:opacity-80 transition-opacity md:hidden"
+              style={{ color: "#14B8A6" }}
+            >
+              <ArrowLeft size={14} />
+              <span>Back</span>
+            </button>
+            <div className="flex items-center gap-2">
+              <VyvataLogo size={16} />
+              <span className="text-xs font-bold tracking-widest" style={{ color: "#14B8A6", fontFamily: "Montserrat, sans-serif" }}>
+                EVIDENCE LIBRARY
+              </span>
+            </div>
           </div>
+          <PractitionerNav />
         </div>
       </header>
 
