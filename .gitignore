@@ -11,6 +11,8 @@ dist/
 # Environment variables — NEVER commit these
 .env.local
 .env*.local
+.env.production
+.env.development
 
 # Debug
 npm-debug.log*
@@ -33,3 +35,11 @@ Thumbs.db
 .vscode/
 *.swp
 *.swo
+
+# Agent / skills installs (regenerated from skills-lock.json via `npx skills add`)
+.agents/
+.augment/
+.claude/
+.continue/
+.windsurf/
+.zencoder/

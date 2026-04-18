@@ -1,7 +1,7 @@
 # Vyvata Roadmap
 
 Snapshot of what's built, what's missing, and a phased plan to production.
-Last updated: 2026-04-18 (post-Phase-0 cleanup).
+Last updated: 2026-04-18 (Phase 2 complete).
 
 ---
 
@@ -24,10 +24,12 @@ Last updated: 2026-04-18 (post-Phase-0 cleanup).
 - Applications review ([src/app/admin/AdminClient.tsx](src/app/admin/AdminClient.tsx)) — approve/reject with counts by status
 
 ### Engine (domain logic)
-- **Ingredients DB** — 51 records in [src/lib/ingredients-db.ts](src/lib/ingredients-db.ts) (vitamins, minerals, adaptogens, nootropics, longevity, etc.) with aliases, evidence tier, dose ranges, interactions, synergies
-- **Rules engine** — [src/lib/rules-engine.ts](src/lib/rules-engine.ts) deterministic: matches, interactions, redundancies, dose checks, timing, goal gaps
+- **Ingredients DB** — **152 records** in [src/lib/ingredients-db.ts](src/lib/ingredients-db.ts) (vitamins, minerals, adaptogens, nootropics, longevity, medicinal mushrooms, amino acids, etc.) with aliases, evidence tier, dose ranges, interactions, synergies
+- **Rules engine** — [src/lib/rules-engine.ts](src/lib/rules-engine.ts) deterministic: matches, interactions (with severity classification), redundancies, dose checks, timing, goal gaps, synergies detection, cycling recommendations
 - **Stack parser** — [src/lib/stack-parser.ts](src/lib/stack-parser.ts) freeform text → structured ingredients + dose + unit
 - **LLM synthesis** — [src/lib/llm-synthesizer.ts](src/lib/llm-synthesizer.ts) OpenAI `gpt-4o` with compliance-enforced system prompt; deterministic fallback when key missing
+- **Protocol templates** — [src/lib/protocol-templates.ts](src/lib/protocol-templates.ts) 5 canonical protocols (cognitive performance, deep sleep, athletic, longevity, immune support) with evidence summaries
+- **Evidence library** — [src/lib/evidence-summaries.ts](src/lib/evidence-summaries.ts) 10 clinical summaries (200-300 words, PubMed citations) for top ingredients, interactions, and protocols
 
 ### Integrations
 | Service | Wired | Fallback | Status |
@@ -72,14 +74,20 @@ Vyvata has four specialized AI agents to accelerate development and maintain qua
 
 ### Supabase state (verified)
 Probed directly against the live project. All 10 tables exist:
-`sessions`, `audits`, `users`, `quiz_responses`, `practitioners`, `practitioner_sessions`, `patient_links` (all wired in code) plus `protocols`, `outcomes`, `referrals` (provisioned but **not yet referenced in code** — ready for future phases).
+`sessions`, `audits`, `users`, `quiz_responses`, `practitioners`, `practitioner_sessions`, `patient_links` (all wired in code).
+
+**Phase 2 additions (migration ready):**
+`protocols` table with RLS policies and 5 seeded templates: cognitive-performance-v1, deep-sleep-recovery-v1, athletic-performance-v1, longevity-foundation-v1, immune-support-v1 (migration: [supabase/migrations/20260418_create_protocols_table.sql](supabase/migrations/20260418_create_protocols_table.sql)).
+
+**Future phases:**
+`outcomes` (wearables), `referrals` (practitioner attribution) — provisioned but not yet wired.
 
 Demo practitioner seeded: `demo@vyvata.com` / `DEMO-2026` (approved, active).
-
-### README drift (Phase 0 cleanup — done)
-- ~~Says "Next.js 15"; actual is 16.2.4~~ → Fixed.
-- ~~Lists `protocols`/`outcomes` tables as if used~~ → README now marks them "provisioned, not yet wired".
-
+~~Practitioner dashboard evidence summaries~~ → **✅ Built in Phase 2** ([evidence-summaries.ts](src/lib/evidence-summaries.ts)); needs UI wiring in [DashboardClient.tsx](src/app/practitioner/dashboard/DashboardClient.tsx)
+- ~~Protocol templates~~ → **✅ Built in Phase 2** ([protocol-templates.ts](src/lib/protocol-templates.ts) + migration); needs UI wiring in `/protocol/[slug]` page
+- Wearable outcomes (`outcomes` table)
+- Referral loop (`referrals` table mentioned in README, not wired)
+- ~~Lost-access-code recovery flow~~ → **✅ Built in Phase 1** ([/practitioner/recover](src/app/practitioner/recover/page.tsx))
 ### Deferred features (explicit)
 - Practitioner dashboard evidence summaries — marked "coming in v2" in [DashboardClient.tsx](src/app/practitioner/dashboard/DashboardClient.tsx)
 - Protocol templates (`protocols` table)
@@ -120,14 +128,20 @@ Ship-ready hardening. Code-side shipped; three items below need your action.
 - [ ] Verify Resend sender domain — `hello@vyvata.com` is used in approval/recovery emails; check SPF/DKIM/DMARC are green in the Resend dashboard so mail doesn't go to spam.
 - [ ] Add Sentry (or similar) runtime error reporting — create project, set `SENTRY_DSN`, wrap app with SDK. Deferred until real traffic.
 
-### Phase 2 — Clinical depth (2–4 weeks)
+### Phase 2 — Clinical depth ✅ Core Complete (2026-04-18)
 Make the engine defensible.
 
-- [ ] Grow [ingredients-db.ts](src/lib/ingredients-db.ts) from 51 → 150+ (target: covers ~95% of common intake)
-- [ ] Expand rules engine: more drug-nutrient interactions, age/sex-adjusted dosing, cycle/taper logic
-- [ ] Build `protocols` table + named-template system so `/protocol/[slug]` can serve canonical templates (cognitive-performance, deep-sleep-recovery, athletic-performance, longevity-foundation)
-- [ ] Ship dashboard evidence summaries (the v2 placeholder)
-- [ ] Add per-ingredient evidence citations (PubMed links), surface in protocol page
+- [x] Grow [ingredients-db.ts](src/lib/ingredients-db.ts) from 51 → **152** — covers vitamins, minerals, nootropics, adaptogens, medicinal mushrooms, amino acids, longevity compounds, sports performance
+- [x] Expand rules engine: severity classification (critical/moderate/minor), synergies detection (Caffeine+L-Theanine, D3+K2, etc.), cycling recommendations (caffeine, racetams, etc.), enhanced goal-gap analysis
+- [x] Build `protocols` table + named-template system ([migration](supabase/migrations/20260418_create_protocols_table.sql) + [TypeScript lib](src/lib/protocol-templates.ts)) with 5 seeded protocols: cognitive-performance-v1, deep-sleep-recovery-v1, athletic-performance-v1, longevity-foundation-v1, immune-support-v1
+- [x] Ship evidence summaries library ([evidence-summaries.ts](src/lib/evidence-summaries.ts)) — 10 summaries (200-300 words, PubMed citations) for top ingredients, interactions, and protocols
+- [ ] **UI wiring needed:** Connect evidence summaries to practitioner dashboard and protocol pages
+
+**Metrics:**
+- Ingredient count: 51 → 152 (3x expansion)
+- Rules enhancements: severity classification, synergies (6 pairs), cycling (6 compounds), enhanced goal gaps (7 goals)
+- Protocols: 5 canonical templates seeded, each with 4-7 ingredients, evidence summaries, dosing rationale, contraindications, monitoring advice
+- Evidence library: 10 clinical summaries written (7 ingredients, 2 interactions, 1 protocol)
 
 ### Phase 3 — B2B growth (4–6 weeks)
 Monetization and retention for practitioners.
