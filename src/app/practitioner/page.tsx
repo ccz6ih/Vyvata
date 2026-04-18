@@ -89,7 +89,7 @@ export default async function PractitionerLandingPage() {
         </Link>
         <div className="flex items-center gap-3">
           <Link href="/practitioner/login"
-            className="text-sm hidden md:inline"
+            className="text-sm"
             style={{ color: "#C9D6DF", fontFamily: "Inter, sans-serif" }}>
             Sign in
           </Link>

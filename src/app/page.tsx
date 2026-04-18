@@ -4,7 +4,7 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Sparkles, Shield, Zap, BarChart3, Users, ChevronDown, Brain, Moon, Flame } from "lucide-react";
+import { ArrowRight, Sparkles, Shield, Zap, BarChart3, Users, ChevronDown, Brain, Moon, Flame, Menu, X } from "lucide-react";
 import { VyvataLogo } from "@/components/VyvataLogo";
 import AuthNavLink from "@/components/AuthNavLink";
 
@@ -48,6 +48,7 @@ export default function LandingPage() {
   const router = useRouter();
   const [stackInput, setStackInput] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -104,7 +105,73 @@ export default function LandingPage() {
           Get My Protocol
           <ArrowRight size={14} />
         </button>
+
+        {/* Mobile menu trigger */}
+        <button
+          type="button"
+          onClick={() => setMobileOpen((v) => !v)}
+          aria-expanded={mobileOpen}
+          aria-label={mobileOpen ? "Close menu" : "Open menu"}
+          className="md:hidden flex items-center justify-center w-9 h-9 rounded-lg"
+          style={{
+            color: mobileOpen ? "#14B8A6" : "#C9D6DF",
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.08)",
+          }}
+        >
+          {mobileOpen ? <X size={16} /> : <Menu size={16} />}
+        </button>
       </nav>
+
+      {/* Mobile drawer */}
+      {mobileOpen && (
+        <div
+          className="md:hidden fixed inset-0 z-50"
+          style={{ background: "rgba(11,31,59,0.85)", backdropFilter: "blur(8px)" }}
+          onClick={() => setMobileOpen(false)}
+        >
+          <nav
+            className="absolute top-20 left-4 right-4 rounded-2xl p-2 flex flex-col"
+            style={{
+              background: "#0E2A50",
+              border: "1px solid rgba(201,214,223,0.12)",
+              boxShadow: "0 20px 40px rgba(0,0,0,0.4)",
+              fontFamily: "Inter, sans-serif",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {[
+              { href: "#how",          label: "How it works" },
+              { href: "#protocols",    label: "Protocols" },
+              { href: "/practitioner", label: "Practitioners" },
+              { href: "/signin",       label: "Sign in" },
+              { href: "/me",           label: "My protocols" },
+            ].map((item) => (
+              <a
+                key={item.href}
+                href={item.href}
+                onClick={() => setMobileOpen(false)}
+                className="px-3 py-3 text-sm rounded-xl transition-colors hover:bg-white/5"
+                style={{ color: "#C9D6DF" }}
+              >
+                {item.label}
+              </a>
+            ))}
+            <button
+              onClick={() => { setMobileOpen(false); scrollToInput(); }}
+              className="mt-2 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold"
+              style={{
+                background: "#14B8A6",
+                color: "#FFFFFF",
+                fontFamily: "Montserrat, sans-serif",
+              }}
+            >
+              Get My Protocol
+              <ArrowRight size={14} />
+            </button>
+          </nav>
+        </div>
+      )}
 
       {/* ── HERO ────────────────────────────────────────────── */}
       <section className="hero-bg px-6 py-20 md:py-28">
