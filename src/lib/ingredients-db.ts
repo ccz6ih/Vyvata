@@ -16,6 +16,9 @@ export interface IngredientRecord {
   synergies: string[];
   notes?: string;
   goals: string[]; // which goals this is relevant for
+  
+  // NEW: Link to evidence summaries
+  evidenceSummaryIds?: string[]; // IDs from evidence-summaries.ts
 }
 
 export const INGREDIENTS: IngredientRecord[] = [
@@ -2389,6 +2392,327 @@ export const INGREDIENTS: IngredientRecord[] = [
     synergies: ["Turmeric", "Curcumin", "Quercetin"],
     notes: "Same as Black Pepper Extract - added as standalone since often listed separately. Dramatically increases bioavailability of many compounds.",
     goals: [],
+  },
+
+  // ── NEW ADDITIONS (Phase 2B: Gut Health, Anti-Inflammatory, Immune) ───
+  // PubMed: PMID 30036428 - L. rhamnosus GG gut-brain axis
+  {
+    name: "Lactobacillus rhamnosus GG",
+    aliases: ["l rhamnosus gg", "lgg", "lactobacillus gg", "culturelle"],
+    category: "probiotic",
+    evidence_tier: "strong",
+    standard_dose_mg: 10000000000,
+    min_dose_mg: 1000000000,
+    max_dose_mg: 100000000000,
+    timing: "morning",
+    interactions: [],
+    synergies: ["Bifidobacterium longum", "Inulin"],
+    notes: "Most researched probiotic strain. 1000+ studies. Survives stomach acid. Clinical evidence for IBS, anxiety, diarrhea prevention, immune support.",
+    goals: ["inflammation", "energy", "focus"],
+  },
+
+  // PubMed: PMID 29945733 - B. longum anxiety gut-brain
+  {
+    name: "Bifidobacterium longum",
+    aliases: ["b longum", "bifidobacterium longum 1714", "b longum 35624"],
+    category: "probiotic",
+    evidence_tier: "strong",
+    standard_dose_mg: 1000000000,
+    min_dose_mg: 1000000000,
+    max_dose_mg: 10000000000,
+    timing: "evening",
+    interactions: [],
+    synergies: ["Lactobacillus rhamnosus GG", "Inulin"],
+    notes: "Strain 1714 reduces cortisol and anxiety via gut-brain axis. Strain 35624 for IBS. Take with prebiotic fiber for colonization.",
+    goals: ["sleep", "inflammation", "focus"],
+  },
+
+  // PubMed: PMID 28914794 - Inulin prebiotic SCFA production
+  {
+    name: "Inulin",
+    aliases: ["inulin fiber", "chicory root fiber", "fructooligosaccharides", "fos"],
+    category: "prebiotic",
+    evidence_tier: "strong",
+    standard_dose_mg: 10000,
+    min_dose_mg: 5000,
+    max_dose_mg: 20000,
+    timing: "any",
+    interactions: [],
+    synergies: ["Lactobacillus rhamnosus GG", "Bifidobacterium longum"],
+    notes: "Soluble fiber that feeds beneficial bacteria. Start low (5g) and titrate to avoid gas/bloating. Increases butyrate production.",
+    goals: ["inflammation", "longevity"],
+  },
+
+  // PubMed: PMID 31382390 - L. plantarum 299v iron absorption
+  {
+    name: "Lactobacillus plantarum",
+    aliases: ["l plantarum", "l plantarum 299v", "lactobacillus plantarum"],
+    category: "probiotic",
+    evidence_tier: "strong",
+    standard_dose_mg: 10000000000,
+    min_dose_mg: 1000000000,
+    max_dose_mg: 50000000000,
+    timing: "morning",
+    interactions: [],
+    synergies: ["Iron", "Inulin"],
+    notes: "Strain 299v enhances iron absorption by 50%. Improves gut barrier function. Survives freeze-drying well.",
+    goals: ["energy", "inflammation"],
+  },
+
+  // PubMed: PMID 31920560 - S. boulardii for C. diff and diarrhea
+  {
+    name: "Saccharomyces boulardii",
+    aliases: ["s boulardii", "saccharomyces boulardii lyo", "florastor"],
+    category: "probiotic",
+    evidence_tier: "strong",
+    standard_dose_mg: 5000000000,
+    min_dose_mg: 5000000000,
+    max_dose_mg: 20000000000,
+    timing: "any",
+    interactions: ["Antifungals"],
+    synergies: ["Lactobacillus rhamnosus GG"],
+    notes: "Beneficial yeast, not bacteria. Prevents C. diff and antibiotic-associated diarrhea. Can be taken WITH antibiotics. Avoid with antifungals.",
+    goals: ["inflammation", "recovery"],
+  },
+
+  // PubMed: PMID 27536817 - Ginger 6-gingerol anti-inflammatory
+  {
+    name: "Ginger Extract",
+    aliases: ["ginger", "zingiber officinale", "ginger root", "6-gingerol"],
+    category: "plant-extract",
+    evidence_tier: "strong",
+    standard_dose_mg: 1000,
+    min_dose_mg: 500,
+    max_dose_mg: 4000,
+    timing: "with-food",
+    interactions: ["Warfarin", "Antiplatelet drugs"],
+    synergies: ["Turmeric"],
+    notes: "Standardize to 5% gingerols. Evidence for nausea (1g), muscle pain (2g), osteoarthritis (1.5-2g). May increase bleeding risk.",
+    goals: ["inflammation", "recovery"],
+  },
+
+  // PubMed: PMID 31117786 - Moringa nutrient profile antioxidant
+  {
+    name: "Moringa",
+    aliases: ["moringa oleifera", "drumstick tree", "moringa leaf"],
+    category: "plant-extract",
+    evidence_tier: "moderate",
+    standard_dose_mg: 2000,
+    min_dose_mg: 1000,
+    max_dose_mg: 8000,
+    timing: "morning",
+    interactions: [],
+    synergies: ["Spirulina"],
+    notes: "Nutrient-dense superfood. Rich in vitamins, minerals, isothiocyanates. May lower blood glucose. Leaf powder preferred over extract.",
+    goals: ["energy", "longevity", "inflammation"],
+  },
+
+  // PubMed: PMID 28479063 - DIM estrogen metabolism breast health
+  {
+    name: "DIM",
+    aliases: ["diindolylmethane", "dim supplement"],
+    category: "plant-extract",
+    evidence_tier: "moderate",
+    standard_dose_mg: 200,
+    min_dose_mg: 100,
+    max_dose_mg: 400,
+    timing: "with-food",
+    interactions: ["Tamoxifen", "Estrogen medications"],
+    synergies: ["I3C"],
+    notes: "From cruciferous vegetables. Modulates estrogen metabolism toward beneficial 2-hydroxy pathway. Take with fat for absorption. Microencapsulated form preferred.",
+    goals: ["longevity", "inflammation"],
+  },
+
+  // PubMed: PMID 26983544 - I3C anticancer estrogen modulation
+  {
+    name: "I3C",
+    aliases: ["indole-3-carbinol", "indole 3 carbinol", "i3c supplement"],
+    category: "plant-extract",
+    evidence_tier: "moderate",
+    standard_dose_mg: 300,
+    min_dose_mg: 200,
+    max_dose_mg: 600,
+    timing: "with-food",
+    interactions: ["Estrogen medications", "Tamoxifen"],
+    synergies: ["DIM", "Sulforaphane"],
+    notes: "Precursor to DIM. Converts to DIM in stomach acid. Some prefer DIM for more stable dosing. From broccoli, cabbage, Brussels sprouts.",
+    goals: ["longevity", "inflammation"],
+  },
+
+  // PubMed: PMID 28814398 - Beta-glucan immune modulation
+  {
+    name: "Beta-Glucan",
+    aliases: ["beta glucan", "β-glucan", "beta 1,3/1,6 glucan"],
+    category: "supplement",
+    evidence_tier: "strong",
+    standard_dose_mg: 500,
+    min_dose_mg: 250,
+    max_dose_mg: 1000,
+    timing: "morning",
+    interactions: [],
+    synergies: ["Vitamin D3"],
+    notes: "From yeast, mushrooms, or oats. 1,3/1,6 structure from yeast most immunogenic. Activates innate immunity. Take away from meals for immune effects.",
+    goals: ["inflammation", "longevity", "recovery"],
+  },
+
+  // PubMed: PMID 28649441 - Arabinogalactan prebiotic immune
+  {
+    name: "Arabinogalactan",
+    aliases: ["larch arabinogalactan", "larch fiber", "ag fiber"],
+    category: "prebiotic",
+    evidence_tier: "moderate",
+    standard_dose_mg: 4500,
+    min_dose_mg: 1500,
+    max_dose_mg: 10000,
+    timing: "any",
+    interactions: [],
+    synergies: ["Lactobacillus rhamnosus GG", "Vitamin C"],
+    notes: "From larch trees. Feeds beneficial bacteria AND activates NK cells. Well-tolerated prebiotic fiber. Can combine with inulin.",
+    goals: ["inflammation", "longevity"],
+  },
+
+  // PubMed: PMID 29856703 - L. acidophilus gut colonization
+  {
+    name: "Lactobacillus acidophilus",
+    aliases: ["l acidophilus", "lactobacillus acidophilus ncfm", "l acidophilus dds-1"],
+    category: "probiotic",
+    evidence_tier: "strong",
+    standard_dose_mg: 10000000000,
+    min_dose_mg: 1000000000,
+    max_dose_mg: 50000000000,
+    timing: "morning",
+    interactions: [],
+    synergies: ["Inulin", "Bifidobacterium bifidum"],
+    notes: "Classic probiotic strain. NCFM and DDS-1 are well-researched strains. Produces lactic acid, acidifies gut. Take with prebiotic.",
+    goals: ["inflammation", "energy"],
+  },
+
+  // PubMed: PMID 31142876 - Elderberry immune antiviral
+  {
+    name: "Elderberry",
+    aliases: ["sambucus", "sambucus nigra", "black elderberry"],
+    category: "plant-extract",
+    evidence_tier: "moderate",
+    standard_dose_mg: 500,
+    min_dose_mg: 300,
+    max_dose_mg: 1200,
+    timing: "morning",
+    interactions: [],
+    synergies: ["Vitamin C", "Zinc"],
+    notes: "Standardize to anthocyanins. Evidence for reducing cold/flu duration by 2-4 days. Start at symptom onset. Some concern about cytokine storm - avoid in severe illness.",
+    goals: ["inflammation", "recovery"],
+  },
+
+  // PubMed: PMID 30670267 - Echinacea prevention and treatment
+  {
+    name: "Echinacea",
+    aliases: ["echinacea purpurea", "echinacea angustifolia", "purple coneflower"],
+    category: "plant-extract",
+    evidence_tier: "moderate",
+    standard_dose_mg: 900,
+    min_dose_mg: 300,
+    max_dose_mg: 3000,
+    timing: "morning",
+    interactions: ["Immunosuppressants", "Caffeine"],
+    synergies: ["Elderberry", "Vitamin C"],
+    notes: "E. purpurea and E. angustifolia both studied. Modest reduction in cold incidence (10-15%). Start at first symptoms. Don't use >8 weeks continuously.",
+    goals: ["inflammation", "recovery"],
+  },
+
+  // PubMed: PMID 26186970 - St. John's Wort depression meta-analysis
+  {
+    name: "St. John's Wort",
+    aliases: ["hypericum perforatum", "sjw", "hypericum"],
+    category: "plant-extract",
+    evidence_tier: "strong",
+    standard_dose_mg: 900,
+    min_dose_mg: 300,
+    max_dose_mg: 1800,
+    timing: "morning",
+    interactions: ["SSRIs", "Birth control", "Warfarin", "Digoxin", "Cyclosporine", "Chemotherapy"],
+    synergies: [],
+    notes: "CRITICAL: Powerful CYP450 inducer - interacts with 50+ medications. Effective for mild-moderate depression (0.3% hypericin standardization). DO NOT combine with antidepressants.",
+    goals: ["focus"],
+  },
+
+  // PubMed: PMID 29325481 - Kava kava anxiolytic GABAergic
+  {
+    name: "Kava Kava",
+    aliases: ["kava", "piper methysticum", "kava extract"],
+    category: "plant-extract",
+    evidence_tier: "moderate",
+    standard_dose_mg: 250,
+    min_dose_mg: 120,
+    max_dose_mg: 400,
+    timing: "evening",
+    interactions: ["Alcohol", "Benzodiazepines", "Hepatotoxic drugs"],
+    synergies: [],
+    notes: "Standardize to 30% kavalactones. Effective for anxiety but hepatotoxicity risk. Use noble cultivars only. Limit to 8-12 weeks. Monitor liver enzymes. Avoid alcohol.",
+    goals: ["sleep"],
+  },
+
+  // PubMed: PMID 28260945 - Artichoke extract cynarin lipid metabolism
+  {
+    name: "Artichoke Extract",
+    aliases: ["cynara scolymus", "artichoke leaf", "cynarin"],
+    category: "plant-extract",
+    evidence_tier: "moderate",
+    standard_dose_mg: 640,
+    min_dose_mg: 320,
+    max_dose_mg: 1920,
+    timing: "with-food",
+    interactions: [],
+    synergies: ["Milk Thistle", "Berberine"],
+    notes: "Standardize to 5% cynarin or 15% caffeoylquinic acids. Choleretic (increases bile flow). Evidence for dyspepsia and modest cholesterol reduction.",
+    goals: ["inflammation", "longevity"],
+  },
+
+  // PubMed: PMID 31003236 - Bifidobacterium breve infant microbiome
+  {
+    name: "Bifidobacterium breve",
+    aliases: ["b breve", "bifidobacterium breve m-16v", "b breve br03"],
+    category: "probiotic",
+    evidence_tier: "moderate",
+    standard_dose_mg: 1000000000,
+    min_dose_mg: 1000000000,
+    max_dose_mg: 100000000000,
+    timing: "evening",
+    interactions: [],
+    synergies: ["Inulin", "Bifidobacterium longum"],
+    notes: "Dominant in infant gut. Strain M-16V for allergies, BR03 for IBS. Produces acetate and lactate. Pairs well with other Bifidobacterium species.",
+    goals: ["inflammation", "recovery"],
+  },
+
+  // PubMed: PMID 28072852 - Bifidobacterium bifidum gut barrier
+  {
+    name: "Bifidobacterium bifidum",
+    aliases: ["b bifidum", "bifidobacterium bifidum bgn4", "b bifidum prl2010"],
+    category: "probiotic",
+    evidence_tier: "moderate",
+    standard_dose_mg: 1000000000,
+    min_dose_mg: 1000000000,
+    max_dose_mg: 50000000000,
+    timing: "evening",
+    interactions: [],
+    synergies: ["Lactobacillus acidophilus", "Arabinogalactan"],
+    notes: "Strongly adheres to intestinal mucosa. Modulates immune system. Often combined with L. acidophilus in classic probiotic formulas.",
+    goals: ["inflammation", "longevity"],
+  },
+
+  // PubMed: PMID 28414764 - Vitamin K1 vs K2 bone cardiovascular
+  {
+    name: "Vitamin K1",
+    aliases: ["phylloquinone", "k1", "vitamin k", "phytonadione"],
+    category: "vitamin",
+    evidence_tier: "strong",
+    standard_dose_mg: 0.12,
+    min_dose_mg: 0.09,
+    max_dose_mg: 1,
+    timing: "morning",
+    interactions: ["Warfarin"],
+    synergies: ["Vitamin D3", "Vitamin K2"],
+    notes: "Primary form for blood clotting. K2 better for bones/arteries. K1 converts to K2 but inefficiently. Abundant in leafy greens. Supplementation usually unnecessary unless on antibiotics.",
+    goals: ["longevity"],
   },
 ];
 

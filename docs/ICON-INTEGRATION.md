@@ -7,7 +7,7 @@
 
 ## Overview
 
-Replaced all Lucide icon components with wellness-focused SVG icons from the `/public/icons/` folder across the Vyvata application. This provides a more cohesive, health-focused visual identity aligned with the wellness and supplement optimization domain.
+Replaced **all** Lucide icon components with wellness-focused SVG icons from the `/public/icons/` folder across the entire Vyvata application. This provides a more cohesive, health-focused visual identity aligned with the wellness and supplement optimization domain.
 
 ---
 

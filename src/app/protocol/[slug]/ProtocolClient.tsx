@@ -7,8 +7,7 @@ import { Button } from "@/components/ui/button";
 import {
   ArrowLeft, Share2, Lock, CheckCircle, XCircle,
   AlertTriangle, Plus, ArrowRight, RefreshCw, Sparkles,
-  Brain, Moon, Footprints, Hourglass, Stethoscope,
-  type LucideIcon,
+  Stethoscope,
 } from "lucide-react";
 import type { AuditResult, ReportSection, WorkingItem, WastingItem, FightingItem, MissingItem, RevisedStackItem } from "@/types";
 import { VyvataLogo } from "@/components/VyvataLogo";
@@ -422,28 +421,28 @@ function FullReport({ report }: { report: ReportSection }) {
 // ── MAIN CLIENT COMPONENT ─────────────────────────────────────
 
 // ── Quiz-based protocol map (matches /api/quiz route) ────────────
-const PROTOCOL_META: Record<string, { name: string; Icon: LucideIcon; category: string; tagline: string }> = {
+const PROTOCOL_META: Record<string, { name: string; icon: string; category: string; tagline: string }> = {
   "cognitive-performance": {
     name: "Cognitive Performance",
-    Icon: Brain,
+    icon: "/icons/Read a Good Book.svg",
     category: "Focus & Cognition",
     tagline: "Sharpen attention, reduce brain fog, optimize mental output.",
   },
   "deep-sleep-recovery": {
     name: "Deep Sleep & Recovery",
-    Icon: Moon,
+    icon: "/icons/Get Enough Sleep.svg",
     category: "Sleep & Recovery",
     tagline: "Restore restorative sleep cycles and accelerate physical recovery.",
   },
   "athletic-performance": {
     name: "Athletic Performance",
-    Icon: Footprints,
+    icon: "/icons/Start Running.svg",
     category: "Performance",
     tagline: "Maximize output, endurance, and recovery velocity.",
   },
   "longevity-foundation": {
     name: "Longevity Foundation",
-    Icon: Hourglass,
+    icon: "/icons/Healthy Diet.svg",
     category: "Longevity",
     tagline: "Target cellular health, inflammation, and metabolic resilience.",
   },
@@ -617,7 +616,7 @@ export default function ProtocolClient({ slug }: { slug: string }) {
             style={{ background: "linear-gradient(135deg, rgba(17,32,64,0.9) 0%, rgba(13,61,56,0.5) 100%)", border: "1px solid rgba(20,184,166,0.25)" }}
           >
             <div className="text-4xl mb-4 flex justify-center" style={{ color: "#14B8A6" }}>
-              <meta.Icon size={48} />
+              <img src={meta.icon} alt="" className="w-12 h-12" style={{ filter: "brightness(0) saturate(100%) invert(70%) sepia(35%) saturate(1000%) hue-rotate(130deg) brightness(95%) contrast(90%)" }} />
             </div>
             <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: "#14B8A6", fontFamily: "Inter, sans-serif" }}>
               Your Recommended Protocol
@@ -760,10 +759,7 @@ export default function ProtocolClient({ slug }: { slug: string }) {
                 className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
                 style={{ background: "rgba(20,184,166,0.15)", border: "1px solid rgba(20,184,166,0.2)", color: "#14B8A6" }}
               >
-                {(() => {
-                  const Icon = PROTOCOL_META[slug]?.Icon ?? Sparkles;
-                  return <Icon size={20} strokeWidth={1.75} />;
-                })()}
+                <img src={PROTOCOL_META[slug]?.icon ?? "/icons/Set Your Goals.svg"} alt="" className="w-5 h-5" style={{ filter: "brightness(0) saturate(100%) invert(70%) sepia(35%) saturate(1000%) hue-rotate(130deg) brightness(95%) contrast(90%)" }} />
               </div>
               <div className="space-y-0.5">
                 <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "#14B8A6", fontFamily: "Inter, sans-serif" }}>

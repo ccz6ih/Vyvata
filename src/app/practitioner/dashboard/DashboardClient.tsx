@@ -701,9 +701,18 @@ export default function PractitionerDashboardClient({
           className="rounded-xl p-5 space-y-3"
           style={{ background: "rgba(17,32,64,0.4)", border: "1px solid rgba(201,214,223,0.06)" }}
         >
-          <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "#7A90A8" }}>
-            Protocol Reference
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "#7A90A8" }}>
+              Protocol Reference
+            </p>
+            <button
+              onClick={() => router.push("/practitioner/evidence")}
+              className="text-xs font-semibold hover:opacity-80 transition-opacity"
+              style={{ color: "#14B8A6" }}
+            >
+              View Evidence Library →
+            </button>
+          </div>
           <div className="grid grid-cols-2 gap-2">
             {Object.entries(PROTOCOL_LABELS).map(([slug, meta]) => (
               <div key={slug} className="flex items-center gap-2 text-xs">
@@ -713,7 +722,7 @@ export default function PractitionerDashboardClient({
             ))}
           </div>
           <p className="text-xs" style={{ color: "#4a6080" }}>
-            Full protocol evidence summaries coming in v2.
+            Access clinical evidence summaries with PubMed citations.
           </p>
         </div>
 
