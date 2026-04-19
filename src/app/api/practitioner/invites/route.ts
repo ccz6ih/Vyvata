@@ -26,7 +26,7 @@ export async function GET() {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const supabase = getSupabaseServer();
-  const { data, error } = await supabase
+  const { data: invites, error } = await supabase
     .from("practitioner_invites")
     .select("id, token, label, notes, max_uses, use_count, expires_at, revoked_at, created_at, last_used_at")
     .eq("practitioner_id", session.id)
@@ -37,7 +37,35 @@ export async function GET() {
     return NextResponse.json({ error: "Failed to load invites" }, { status: 500 });
   }
 
-  return NextResponse.json({ invites: data ?? [] });
+  const rows = invites ?? [];
+  if (rows.length === 0) return NextResponse.json({ invites: [] });
+
+  // Per-invite conversion: how many patient_links came from each invite, and
+  // how many of those audits were ever unlocked. Done in one extra query.
+  const inviteIds = rows.map((i) => (i as { id: string }).id);
+  const { data: links } = await supabase
+    .from("patient_links")
+    .select("invite_id, audit_id, audits(is_unlocked)")
+    .in("invite_id", inviteIds);
+
+  type LinkRow = { invite_id: string; audits: { is_unlocked: boolean } | { is_unlocked: boolean }[] | null };
+  const stats = new Map<string, { joined: number; unlocked: number }>();
+  for (const l of ((links ?? []) as unknown as LinkRow[])) {
+    const s = stats.get(l.invite_id) ?? { joined: 0, unlocked: 0 };
+    s.joined += 1;
+    // Supabase returns the joined row as either an object or a single-element array depending on cardinality hints.
+    const audit = Array.isArray(l.audits) ? l.audits[0] : l.audits;
+    if (audit?.is_unlocked) s.unlocked += 1;
+    stats.set(l.invite_id, s);
+  }
+
+  const enriched = rows.map((r) => {
+    const row = r as { id: string } & Record<string, unknown>;
+    const s = stats.get(row.id) ?? { joined: 0, unlocked: 0 };
+    return { ...row, joined_count: s.joined, unlocked_count: s.unlocked };
+  });
+
+  return NextResponse.json({ invites: enriched });
 }
 
 export async function POST(req: NextRequest) {

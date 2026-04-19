@@ -12,6 +12,7 @@ import {
 import type { AuditResult, ReportSection, WorkingItem, WastingItem, FightingItem, MissingItem, RevisedStackItem } from "@/types";
 import { VyvataLogo } from "@/components/VyvataLogo";
 import ProductRecommendations from "@/components/ProductRecommendations";
+import InvitedByBanner from "@/components/InvitedByBanner";
 import { ProtocolEvidenceSection } from "@/components/ProtocolEvidenceSection";
 import { StackScoreCard } from "@/components/StackScoreCard";
 import { DSLDProductInfo } from "@/components/DSLDProductInfo";
@@ -657,6 +658,7 @@ export default function ProtocolClient({ slug }: { slug: string }) {
     const meta = PROTOCOL_META[slug];
     return (
       <main className="min-h-dvh" style={{ background: "#0B1F3B" }}>
+        <InvitedByBanner />
         <header
           className="px-6 py-4 flex items-center justify-between sticky top-0 z-10"
           style={{ background: "rgba(11,31,59,0.95)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(201,214,223,0.08)" }}
@@ -771,6 +773,7 @@ export default function ProtocolClient({ slug }: { slug: string }) {
 
   return (
     <main className="min-h-dvh" style={{ background: "#0B1F3B" }}>
+      <InvitedByBanner />
       {/* Header */}
       <header
         className="px-6 py-4 flex items-center justify-between sticky top-0 z-10"

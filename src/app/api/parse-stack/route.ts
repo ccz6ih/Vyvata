@@ -240,10 +240,11 @@ async function consumeInvite({
 
     const { data: prac } = await supabase
       .from("practitioners")
-      .select("name, is_active")
+      .select("name, email, is_active")
       .eq("id", row.practitioner_id)
       .maybeSingle();
     if (!prac || !(prac as { is_active: boolean }).is_active) return null;
+    const practitioner = prac as { name: string; email: string; is_active: boolean };
 
     // Attach the audit to this practitioner's panel. Uses the same pattern as
     // POST /api/practitioner/patients but without a practitioner session cookie.
@@ -262,6 +263,7 @@ async function consumeInvite({
       quiz_response_id: (quiz as { id: string } | null)?.id ?? null,
       patient_label: row.label,
       notes: row.notes,
+      invite_id: row.id,
     });
 
     // Keep the patient_count column honest. Matches the logic we used in
@@ -284,10 +286,69 @@ async function consumeInvite({
       })
       .eq("id", row.id);
 
-    return { id: row.practitioner_id, name: (prac as { name: string }).name };
+    // Fire-and-forget notification email to the practitioner. Non-blocking so
+    // a mis-configured Resend doesn't break audit creation.
+    void notifyPractitionerOfInviteUse({
+      practitionerName: practitioner.name,
+      practitionerEmail: practitioner.email,
+      patientLabel: row.label,
+      auditId,
+    });
+
+    return { id: row.practitioner_id, name: practitioner.name };
   } catch (err) {
     console.error("[parse-stack] consumeInvite failed:", err);
     return null;
+  }
+}
+
+async function notifyPractitionerOfInviteUse(args: {
+  practitionerName: string;
+  practitionerEmail: string;
+  patientLabel: string | null;
+  auditId: string;
+}): Promise<void> {
+  const resendKey = process.env.RESEND_API_KEY;
+  if (!resendKey) return;
+  try {
+    const { Resend } = await import("resend");
+    const resend = new Resend(resendKey);
+    const origin = (process.env.NEXT_PUBLIC_APP_URL || "https://vyvata.com").replace(/\/$/, "");
+    const firstName = args.practitionerName.split(" ")[0];
+    const patientLine = args.patientLabel
+      ? `<strong>${args.patientLabel}</strong> just completed their Vyvata audit`
+      : `A new patient just completed their Vyvata audit`;
+    await resend.emails.send({
+      from: "Vyvata <hello@vyvata.com>",
+      to: args.practitionerEmail,
+      subject: "A patient just joined your Vyvata panel",
+      html: `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /></head>
+<body style="margin:0;padding:0;background:#0B1F3B;font-family:Inter,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0B1F3B;padding:40px 20px;">
+    <tr><td align="center">
+      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
+        <tr><td style="padding-bottom:28px;text-align:center;">
+          <span style="font-size:11px;font-weight:700;letter-spacing:4px;color:#14B8A6;font-family:Montserrat,Arial,sans-serif;">VYVATA</span>
+        </td></tr>
+        <tr><td style="background:#112649;border-radius:16px;padding:36px;border:1px solid rgba(201,214,223,0.1);">
+          <p style="margin:0 0 8px;font-size:12px;font-weight:600;letter-spacing:3px;color:#14B8A6;font-family:Montserrat,Arial,sans-serif;text-transform:uppercase;">New patient on your panel</p>
+          <h1 style="margin:0 0 16px;font-size:22px;font-weight:900;color:#E8F0F5;font-family:Montserrat,Arial,sans-serif;">Hi ${firstName},</h1>
+          <p style="margin:0 0 24px;font-size:14px;color:#C9D6DF;line-height:1.6;">${patientLine} after clicking your invite link. Their protocol is already linked to your panel — no manual work needed on your side.</p>
+          <a href="${origin}/practitioner/dashboard" style="display:inline-block;background:linear-gradient(135deg,#14B8A6,#0F766E);color:#fff;font-size:13px;font-weight:700;letter-spacing:1px;font-family:Montserrat,Arial,sans-serif;text-transform:uppercase;padding:12px 26px;border-radius:10px;text-decoration:none;">View in dashboard →</a>
+        </td></tr>
+        <tr><td style="padding-top:24px;text-align:center;">
+          <p style="margin:0;font-size:11px;color:#4a6080;">Vyvata · Practitioner portal · <a href="mailto:hello@vyvata.com" style="color:#14B8A6;text-decoration:none;">hello@vyvata.com</a></p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`,
+    });
+  } catch (err) {
+    console.error("[parse-stack] notifyPractitionerOfInviteUse failed:", err);
   }
 }
 

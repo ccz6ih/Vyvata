@@ -6,6 +6,7 @@ import { Check, Play } from "lucide-react";
 import { getOrCreateSessionId } from "@/lib/session";
 import type { Goal } from "@/types";
 import { VyvataLogo } from "@/components/VyvataLogo";
+import InvitedByBanner from "@/components/InvitedByBanner";
 
 const STEPS = [
   { label: "Parsing your input...",                    duration: 700 },
@@ -100,9 +101,11 @@ export default function ProcessingPage() {
 
   return (
     <main
-      className="min-h-dvh flex flex-col items-center justify-center px-6"
+      className="min-h-dvh flex flex-col items-center px-6"
       style={{ background: "#0B1F3B" }}
     >
+      <InvitedByBanner />
+      <div className="flex-1 flex flex-col items-center justify-center w-full">
       <div className="max-w-sm w-full space-y-12">
         {/* Logo */}
         <div className="flex flex-col items-center gap-3">
@@ -208,6 +211,7 @@ export default function ProcessingPage() {
             )}
           </div>
         )}
+      </div>
       </div>
     </main>
   );

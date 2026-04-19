@@ -17,6 +17,8 @@ interface InviteRow {
   revoked_at: string | null;
   created_at: string;
   last_used_at: string | null;
+  joined_count?: number;
+  unlocked_count?: number;
 }
 
 function isActive(inv: InviteRow): boolean {
@@ -228,8 +230,14 @@ function InviteList({
               {linkFor(inv.token).replace(/^https?:\/\//, "")}
             </code>
             <span style={{ color: "#7A90A8" }}>
-              {inv.use_count} use{inv.use_count === 1 ? "" : "s"}
-              {inv.max_uses ? ` / ${inv.max_uses}` : ""}
+              {inv.joined_count ?? inv.use_count} joined
+              {typeof inv.unlocked_count === "number" && (
+                <span>
+                  {" · "}
+                  <span style={{ color: "#14B8A6" }}>{inv.unlocked_count} unlocked</span>
+                </span>
+              )}
+              {inv.max_uses ? ` · cap ${inv.max_uses}` : ""}
             </span>
             {inv.expires_at && (
               <span className="inline-flex items-center gap-1" style={{ color: "#7A90A8" }}>

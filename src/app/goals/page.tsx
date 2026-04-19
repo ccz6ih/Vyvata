@@ -7,6 +7,7 @@ import Image from "next/image";
 import { ArrowRight, ArrowLeft } from "lucide-react";
 import type { Goal } from "@/types";
 import { VyvataLogo } from "@/components/VyvataLogo";
+import InvitedByBanner from "@/components/InvitedByBanner";
 
 type GoalOption = {
   id: Goal;
@@ -53,6 +54,7 @@ export default function GoalsPage() {
 
   return (
     <main className="min-h-dvh" style={{ background: "#0B1F3B" }}>
+      <InvitedByBanner />
       {/* Header */}
       <header
         className="px-6 py-5 flex items-center gap-3"

@@ -46,9 +46,26 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const who = data.practitioner.credential
     ? `${data.practitioner.name}, ${data.practitioner.credential}`
     : data.practitioner.name;
+  const title = `${who} invited you to Vyvata`;
+  const description =
+    "Your practitioner has invited you to build a personalized supplement protocol. Free, takes 60 seconds.";
+  const ogPath = `/api/og/invite/${encodeURIComponent(token)}`;
   return {
-    title: `${who} invited you to Vyvata`,
-    description: "Your practitioner has invited you to build a personalized supplement protocol. Free, takes 60 seconds.",
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      type: "website",
+      siteName: "Vyvata",
+      images: [{ url: ogPath, width: 1200, height: 630, alt: title }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [ogPath],
+    },
   };
 }
 
@@ -122,7 +139,7 @@ export default async function InviteLandingPage({ params }: PageProps) {
             </div>
           </div>
 
-          <InviteAccept token={invite.token} />
+          <InviteAccept token={invite.token} practitioner={practitioner} />
 
           <p className="text-xs" style={{ color: "#4a6080" }}>
             Free. No account required. Takes about one minute.

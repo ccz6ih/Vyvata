@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { getOrCreateSessionId } from "@/lib/session";
 import { VyvataLogo } from "@/components/VyvataLogo";
+import InvitedByBanner from "@/components/InvitedByBanner";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type SingleOption = { type: "single"; key: string; label: string; icon?: string };
@@ -531,6 +532,7 @@ export default function QuizPage() {
       className="min-h-dvh flex flex-col"
       style={{ background: "#0B1F3B", fontFamily: "Inter, sans-serif" }}
     >
+      <InvitedByBanner />
       {/* ── Top bar ── */}
       <header className="sticky top-0 z-20 flex items-center justify-between px-5 py-4"
         style={{ background: "rgba(11,31,59,0.92)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(201,214,223,0.08)" }}>
