@@ -7,10 +7,11 @@ import { getPractitionerSession } from "@/lib/practitioner-auth";
 import { getSupabaseServer } from "@/lib/supabase";
 
 export async function GET(request: NextRequest) {
-  const session = await getPractitionerSession();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  // Note: Products are public data, no auth required for browsing
+  // const session = await getPractitionerSession();
+  // if (!session) {
+  //   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  // }
   
   const searchParams = request.nextUrl.searchParams;
   const category = searchParams.get('category');
