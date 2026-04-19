@@ -167,6 +167,23 @@ export async function GET(req: Request) {
               border: `2px solid ${tierColor}`,
             }}
           >
+            {/* Eyebrow label — plain text child of the flex column so it
+                won't trip the mixed-text+span crash pattern documented
+                at the top of this file. `textTransform: uppercase` is
+                already used on the category and tier labels without
+                incident. */}
+            <div
+              style={{
+                fontSize: 13,
+                fontWeight: 700,
+                letterSpacing: 4,
+                color: "#7A90A8",
+                textTransform: "uppercase",
+                marginBottom: 12,
+              }}
+            >
+              Integrity Score
+            </div>
             <div
               style={{
                 fontSize: 110,
@@ -260,7 +277,7 @@ export async function GET(req: Request) {
             textAlign: "center",
           }}
         >
-          Evidence-graded · Compliance-checked · vyvata.com
+          Independent integrity scores · Evidence-graded · vyvata.com
         </div>
       </div>
     ),

@@ -20,8 +20,16 @@ export async function GET(req: NextRequest) {
   const finding1 = (searchParams.get("f1") || "AI protocol analysis complete.").slice(0, 180);
   const finding2 = (searchParams.get("f2") || "").slice(0, 180);
 
+  // Align with VSF tier thresholds from src/lib/product-scoring.ts tierFor():
+  //   90+ Elite (purple), 75+ Verified (teal), 60+ Standard (amber), else Rejected (red).
+  // Protocol integrity scores use the same ladder as product scores so a
+  // practitioner looking at a share card intuits "this is in the same band
+  // as a Verified product" without translation.
   const scoreColor =
-    score >= 70 ? "#14B8A6" : score >= 50 ? "#f59e0b" : "#f87171";
+    score >= 90 ? "#a78bfa" :
+    score >= 75 ? "#14B8A6" :
+    score >= 60 ? "#F59E0B" :
+    "#F87171";
 
   return new ImageResponse(
     (
@@ -140,7 +148,7 @@ export async function GET(req: NextRequest) {
               letterSpacing: 2,
             }}
           >
-            vyvata.com · AI-POWERED HEALTH PROTOCOL ENGINE
+            vyvata.com · THE INDEPENDENT INTEGRITY SCORE
           </div>
         </div>
       </div>

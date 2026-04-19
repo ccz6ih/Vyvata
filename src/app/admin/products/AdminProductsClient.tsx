@@ -171,6 +171,23 @@ export default function AdminProductsClient() {
     }
   };
 
+  const syncTargetedCerts = async () => {
+    if (!confirm("Sync certifications for Thorne, Nordic Naturals, and Garden of Life? (Much faster than full sync)")) return;
+    setSyncingAll(true);
+    setSyncResult(null);
+    try {
+      const res = await fetch("/api/admin/sync-certifications-targeted", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Targeted sync failed");
+      setSyncResult(data.message ?? `Synced ${data.stats?.productsWithCerts || 0} products with certifications`);
+      await fetchProducts();
+    } catch (e) {
+      setSyncResult(e instanceof Error ? e.message : "Targeted sync failed");
+    } finally {
+      setSyncingAll(false);
+    }
+  };
+
   const quickImport = async () => {
     setImporting(true);
     setImportResult(null);
@@ -333,6 +350,20 @@ export default function AdminProductsClient() {
             </button>
           )}
           <button
+            onClick={syncTargetedCerts}
+            disabled={syncingAll || products.length === 0}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
+            style={{
+              background: "rgba(34,197,94,0.1)",
+              border: "1px solid rgba(34,197,94,0.3)",
+              color: "#22C55E",
+            }}
+            title="Sync certifications for premium brands (Thorne, Nordic Naturals, Garden of Life)"
+          >
+            {syncingAll ? <RefreshCw size={12} className="animate-spin" /> : <Award size={12} />}
+            Sync Premium Certs
+          </button>
+          <button
             onClick={syncAllCerts}
             disabled={syncingAll || products.length === 0}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
@@ -341,9 +372,10 @@ export default function AdminProductsClient() {
               border: "1px solid rgba(129,140,248,0.3)",
               color: "#818CF8",
             }}
+            title="Sync all products (slow, may timeout)"
           >
             {syncingAll ? <RefreshCw size={12} className="animate-spin" /> : <Award size={12} />}
-            Sync all certs
+            Sync All Certs
           </button>
         </div>
       </header>
