@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import {
   ArrowLeft, Award, Beaker, CheckCircle2, ShieldCheck, Sparkles,
   Microscope, Factory, Eye, Leaf, ExternalLink, AlertTriangle,
@@ -7,10 +7,13 @@ import {
 import type { Metadata } from "next";
 import { getSupabaseServer } from "@/lib/supabase";
 import { VyvataLogo } from "@/components/VyvataLogo";
+import ShareButtons from "@/components/ShareButtons";
 
 interface PageProps {
-  params: Promise<{ id: string }>;
+  params: Promise<{ slug: string }>;
 }
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 interface IngredientRow {
   ingredient_name: string;
@@ -93,26 +96,29 @@ interface ComplianceFlag {
 }
 
 async function loadProduct(
-  id: string
-): Promise<(ProductData & { compliance_flags: ComplianceFlag[] }) | null> {
+  slugOrId: string
+): Promise<(ProductData & { slug: string; compliance_flags: ComplianceFlag[] }) | null> {
   const supabase = getSupabaseServer();
+  const lookupColumn = UUID_RE.test(slugOrId) ? "id" : "slug";
+
   const { data, error } = await supabase
     .from("products")
     .select(`
-      id, brand, name, category, product_url, image_url, serving_size,
+      id, slug, brand, name, category, product_url, image_url, serving_size,
       servings_per_container, price_usd, price_per_serving, status, manufacturer_id,
       manufacturer:manufacturers (name, country, website),
       product_ingredients (ingredient_name, dose, unit, form, bioavailability, is_proprietary_blend, daily_value_percentage, display_order),
       certifications (type, verified, verification_url, certificate_number, expiration_date),
       product_scores (integrity_score, tier, evidence_score, safety_score, formulation_score, manufacturing_score, transparency_score, sustainability_score, scored_at, is_current)
     `)
-    .eq("id", id)
+    .eq(lookupColumn, slugOrId)
     .eq("status", "active")
     .maybeSingle();
 
   if (error || !data) return null;
 
   const raw = data as unknown as ProductData & {
+    slug: string;
     manufacturer_id: string | null;
     product_scores: Array<ScoreRow & { is_current: boolean }>;
   };
@@ -120,8 +126,8 @@ async function loadProduct(
 
   // Compliance flags matched by product or manufacturer (excludes resolved).
   const orClauses = raw.manufacturer_id
-    ? `matched_product_id.eq.${id},matched_manufacturer_id.eq.${raw.manufacturer_id}`
-    : `matched_product_id.eq.${id}`;
+    ? `matched_product_id.eq.${raw.id},matched_manufacturer_id.eq.${raw.manufacturer_id}`
+    : `matched_product_id.eq.${raw.id}`;
   const { data: flagsData } = await supabase
     .from("compliance_flags")
     .select("id, source, subject, severity, issued_date, raw_data")
@@ -137,22 +143,44 @@ async function loadProduct(
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { id } = await params;
-  const product = await loadProduct(id);
+  const { slug } = await params;
+  const product = await loadProduct(slug);
   if (!product) return { title: "Product not found · Vyvata" };
   const score = product.product_scores[0];
+  const ogPath = `/api/og/product?slug=${encodeURIComponent(product.slug)}`;
+  const title = `${product.brand} ${product.name} · Vyvata`;
+  const description = score
+    ? `Vyvata integrity score ${score.integrity_score}/100 (${score.tier}). Evidence-graded analysis of ${product.brand} ${product.name}.`
+    : `Vyvata-analysed product: ${product.brand} ${product.name}.`;
   return {
-    title: `${product.brand} ${product.name} · Vyvata`,
-    description: score
-      ? `Vyvata integrity score ${score.integrity_score}/100 (${score.tier}). Evidence-graded analysis of ${product.brand} ${product.name}.`
-      : `Vyvata-analysed product: ${product.brand} ${product.name}.`,
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      type: "website",
+      siteName: "Vyvata",
+      images: [{ url: ogPath, width: 1200, height: 630, alt: title }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [ogPath],
+    },
   };
 }
 
 export default async function ProductPage({ params }: PageProps) {
-  const { id } = await params;
-  const product = await loadProduct(id);
+  const { slug } = await params;
+  const product = await loadProduct(slug);
   if (!product) notFound();
+
+  // If the user hit a UUID URL, permanent-redirect to the canonical slug URL.
+  // Preserves in-the-wild shares but pushes everyone onto the readable URL.
+  if (UUID_RE.test(slug) && product.slug && product.slug !== slug) {
+    permanentRedirect(`/products/${product.slug}`);
+  }
 
   const score = product.product_scores[0] ?? null;
   const tierColor = score ? TIER_COLOR[score.tier] : "#4a6080";
@@ -398,6 +426,21 @@ export default async function ProductPage({ params }: PageProps) {
             ))}
           </div>
         </Panel>
+
+        {/* ── Share ── */}
+        <div className="pt-2 space-y-3">
+          <p className="text-[10px] font-semibold tracking-widest uppercase" style={{ color: "#7A90A8" }}>
+            Share this scorecard
+          </p>
+          <ShareButtons
+            url={`/products/${product.slug}`}
+            label={
+              score
+                ? `${product.brand} ${product.name} scores ${score.integrity_score}/100 (${score.tier}) on the Vyvata Standards Framework.`
+                : `Check out ${product.brand} ${product.name} on Vyvata.`
+            }
+          />
+        </div>
 
         {/* ── Disclaimer ── */}
         <p className="text-center text-xs pb-6" style={{ color: "#4a6080" }}>

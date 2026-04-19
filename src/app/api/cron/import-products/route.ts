@@ -205,7 +205,7 @@ async function importProducts(products: any[]) {
           servings_per_container: product.servings_per_container,
           price_usd: product.price_usd,
           status: product.status,
-          dsld_id: product.dsld_id,
+          // dsld_id field will be added in future migration
         }, { onConflict: 'brand,name' })
         .select()
         .single();

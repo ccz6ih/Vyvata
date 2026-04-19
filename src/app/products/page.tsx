@@ -13,6 +13,7 @@ type Tier = "elite" | "verified" | "standard" | "rejected";
 
 interface Row {
   id: string;
+  slug: string;
   brand: string;
   name: string;
   category: string;
@@ -46,7 +47,7 @@ export default async function ProductsCataloguePage({
   const { data, error } = await supabase
     .from("products")
     .select(`
-      id, brand, name, category, price_per_serving,
+      id, slug, brand, name, category, price_per_serving,
       product_ingredients (id),
       certifications (id, verified),
       product_scores (integrity_score, tier, is_current)
@@ -175,7 +176,7 @@ export default async function ProductsCataloguePage({
               return (
                 <Link
                   key={p.id}
-                  href={`/products/${p.id}`}
+                  href={`/products/${p.slug ?? p.id}`}
                   className="rounded-xl px-4 py-4 flex items-center gap-4 hover:translate-x-0.5 transition-transform"
                   style={{ background: "rgba(17,32,64,0.6)", border: "1px solid rgba(201,214,223,0.08)" }}
                 >

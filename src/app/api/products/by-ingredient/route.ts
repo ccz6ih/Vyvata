@@ -11,6 +11,7 @@ import { getSupabaseServer } from "@/lib/supabase";
 
 interface JoinedRow {
   id: string;
+  slug: string | null;
   brand: string;
   name: string;
   category: string;
@@ -46,7 +47,7 @@ export async function GET(req: NextRequest) {
   const { data, error } = await supabase
     .from("products")
     .select(`
-      id, brand, name, category, price_per_serving, product_url,
+      id, slug, brand, name, category, price_per_serving, product_url,
       product_ingredients!inner (ingredient_name, dose, unit, form, bioavailability),
       certifications (type, verified),
       product_scores (integrity_score, tier, is_current)
@@ -70,6 +71,7 @@ export async function GET(req: NextRequest) {
       );
       return {
         id: p.id,
+        slug: p.slug,
         brand: p.brand,
         name: p.name,
         category: p.category,
