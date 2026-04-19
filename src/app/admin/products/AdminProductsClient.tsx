@@ -56,6 +56,7 @@ export default function AdminProductsClient() {
   const [syncResult, setSyncResult] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<string | null>(null);
+  const [cleaning, setCleaning] = useState(false);
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -186,6 +187,25 @@ export default function AdminProductsClient() {
     }
   };
 
+  const cleanupEmpty = async () => {
+    if (!confirm('Delete all products without ingredients? They can be re-imported with proper data.')) return;
+    setCleaning(true);
+    setImportResult(null);
+    try {
+      const res = await fetch("/api/admin/products/cleanup-empty", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Cleanup failed");
+      setImportResult(
+        `Deleted ${data.deleted} empty products · ${data.remaining} remaining`
+      );
+      await fetchProducts();
+    } catch (e) {
+      setImportResult(e instanceof Error ? e.message : "Cleanup failed");
+    } finally {
+      setCleaning(false);
+    }
+  };
+
   const unscoredCount = products.filter((p) => !p.current_score).length;
 
   return (
@@ -215,6 +235,19 @@ export default function AdminProductsClient() {
           </span>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={cleanupEmpty}
+            disabled={cleaning || products.length === 0}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
+            style={{
+              background: "rgba(239,68,68,0.12)",
+              border: "1px solid rgba(239,68,68,0.3)",
+              color: "#FCA5A5",
+            }}
+          >
+            {cleaning ? <RefreshCw size={12} className="animate-spin" /> : <Box size={12} />}
+            Cleanup Empty
+          </button>
           <button
             onClick={quickImport}
             disabled={importing}
