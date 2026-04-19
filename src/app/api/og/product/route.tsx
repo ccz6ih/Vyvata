@@ -9,8 +9,17 @@
 //   - `background: "#RRGGBBAA"` 8-char hex alpha (use rgba() instead)
 //   - Small pill: solid-hex background + dark text + `borderRadius: 999`
 //     combined — render as plain colored text instead
-// If you add styling here, verify the PNG renders end-to-end, don't trust
-// a passing build. A failed render is 0 bytes and otherwise invisible.
+//   - Small circled glyph: ~36px square with rounded borderRadius +
+//     background + border + centered inline text (e.g. a V-mark). Same
+//     class as the pill above
+//   - Empty flex rows: `<div style={{ display: "flex", height: 1 }} />`
+//     as a divider. Use plain block divs without display:flex for thin
+//     dividers instead
+//   - `<div>{text}<span>{text}</span></div>` mixed text + element
+//     children without `display: flex` on the parent
+// If you add styling here, verify the PNG renders end-to-end — run
+// `npm run smoke:og` post-deploy. A failed render is 0 bytes and
+// otherwise invisible. `next build` passes either way.
 
 import { ImageResponse } from "next/og";
 import { createClient } from "@supabase/supabase-js";
