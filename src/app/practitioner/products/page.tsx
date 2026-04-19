@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Package, Search, Filter, Award, Database, ExternalLink, ChevronDown } from "lucide-react";
+import Link from "next/link";
+import { Package, Search, Filter, Award, Database, ExternalLink, ChevronDown, FileSearch } from "lucide-react";
 import { VyvataLogo } from "@/components/VyvataLogo";
 import PractitionerNav from "@/components/PractitionerNav";
+import { productUrl } from "@/lib/urls";
 
 interface ProductIngredient {
   ingredient_name: string;
@@ -28,6 +30,7 @@ interface ProductScore {
 
 interface Product {
   id: string;
+  slug?: string | null;
   brand: string;
   name: string;
   category: string;
@@ -269,17 +272,23 @@ function ProductCard({ product }: { product: Product }) {
         >
           Recommend to Patient
         </button>
-        <button
-          className="px-3 py-2.5 rounded-lg transition-all hover:opacity-80"
+        <Link
+          href={productUrl(product)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-semibold transition-all hover:opacity-90"
           style={{
-            background: "rgba(255,255,255,0.04)",
-            border: "1px solid rgba(255,255,255,0.08)",
-            color: "#7A90A8",
+            background: "rgba(20,184,166,0.1)",
+            border: "1px solid rgba(20,184,166,0.3)",
+            color: "#14B8A6",
+            fontFamily: "Montserrat, sans-serif",
           }}
-          title="View on DSLD"
+          title="Open public scorecard in new tab"
         >
-          <ExternalLink size={16} />
-        </button>
+          <FileSearch size={14} />
+          Scorecard
+          <ExternalLink size={11} />
+        </Link>
       </div>
     </div>
   );

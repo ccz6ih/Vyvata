@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
       .from('products')
       .select(`
         id,
+        slug,
         brand,
         name,
         category,
@@ -89,6 +90,7 @@ export async function GET(request: NextRequest) {
         
         return {
           id: product.id,
+          slug: product.slug,
           brand: product.brand,
           name: product.name,
           category: product.category,
