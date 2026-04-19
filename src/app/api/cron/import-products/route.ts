@@ -2,7 +2,7 @@
  * Cron endpoint: Daily product import from DSLD
  * 
  * Schedule: 1 AM daily (before cache refresh at 2 AM)
- * Imports ~150 new products per run across all categories
+ * Imports ~450 new products per run across all categories
  * 
  * Vercel Cron: 0 1 * * * (daily at 1 AM)
  * Manual test: POST /api/cron/import-products
@@ -20,7 +20,7 @@ const supabase = createClient(
 );
 
 const CONFIG = {
-  maxProductsPerCategory: 15, // 10 categories × 15 = 150 products/day
+  maxProductsPerCategory: 30, // 15 categories × 30 = 450 products/day
   categories: {
     'magnesium': ['magnesium glycinate', 'magnesium citrate', 'magnesium bisglycinate', 'magnesium malate'],
     'vitamin-d': ['vitamin d3', 'cholecalciferol', 'vitamin d 5000'],
@@ -32,6 +32,11 @@ const CONFIG = {
     'zinc': ['zinc picolinate', 'zinc citrate', 'zinc'],
     'vitamin-c': ['vitamin c', 'ascorbic acid'],
     'creatine': ['creatine monohydrate', 'creatine'],
+    'multivitamin': ['multivitamin', 'multi vitamin'],
+    'ashwagandha': ['ashwagandha', 'withania'],
+    'iron': ['iron bisglycinate', 'ferrous bisglycinate', 'iron'],
+    'calcium': ['calcium citrate', 'calcium'],
+    'collagen': ['collagen', 'collagen peptides'],
   },
   preferredBrands: [
     'Thorne', 'Life Extension', 'Pure Encapsulations', 'NOW Foods',
