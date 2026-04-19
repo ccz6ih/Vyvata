@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase';
+import { getSupabaseServer } from '@/lib/supabase';
 import { hasAdminSession } from '@/lib/admin-auth';
 
 export const maxDuration = 60;
@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const supabase = createServerClient();
+  const supabase = getSupabaseServer();
   const results = {
     created: 0,
     updated: 0,
