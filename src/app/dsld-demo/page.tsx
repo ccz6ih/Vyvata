@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { VyvataLogo } from '@/components/VyvataLogo';
 import { Button } from '@/components/ui/button';
 
@@ -102,8 +103,9 @@ export default function DSLDDemoPage() {
 
       setResults(data.results);
       setSummary(data.summary);
-    } catch (error: any) {
-      alert(`Failed to enrich stack: ${error.message}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      alert(`Failed to enrich stack: ${message}`);
     } finally {
       setLoading(false);
     }
@@ -125,12 +127,12 @@ export default function DSLDDemoPage() {
               <span className="text-sm font-medium text-gray-600">
                 DSLD API Demo
               </span>
-              <a 
+              <Link 
                 href="/" 
                 className="text-sm text-teal-600 hover:text-teal-700 font-medium"
               >
                 ← Back to Home
-              </a>
+              </Link>
             </div>
           </div>
         </div>

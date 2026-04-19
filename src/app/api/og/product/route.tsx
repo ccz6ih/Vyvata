@@ -131,34 +131,17 @@ export async function GET(req: Request) {
           >
             <div
               style={{
-                fontSize: hasScore ? 110 : 80,
+                fontSize: 110,
                 fontWeight: 900,
                 lineHeight: 1,
                 color: tierColor,
               }}
             >
-              {hasScore ? intScore : "—"}
+              {hasScore && intScore != null ? String(intScore) : "—"}
             </div>
             <div style={{ fontSize: 16, color: "#7A90A8", marginTop: 8 }}>
               {hasScore ? "/ 100" : "Not yet scored"}
             </div>
-            {tier && (
-              <div
-                style={{
-                  marginTop: 14,
-                  padding: "6px 14px",
-                  borderRadius: 999,
-                  background: tierColor,
-                  color: "#0B1F3B",
-                  fontSize: 14,
-                  fontWeight: 800,
-                  letterSpacing: 3,
-                  textTransform: "uppercase",
-                }}
-              >
-                {tier}
-              </div>
-            )}
           </div>
 
           {/* Identity */}
