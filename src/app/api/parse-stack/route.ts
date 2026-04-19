@@ -9,7 +9,9 @@ import { runRulesEngine } from "@/lib/rules-engine";
 import { calculateStackScores } from "@/lib/scoring-engine";
 import { getSupabaseServer } from "@/lib/supabase";
 import { getCurrentUser } from "@/lib/supabase-auth";
-import type { Goal, TeaserResult } from "@/types";
+import { extractProducts, hasProductInfo } from "@/lib/product-parser";
+import { enrichStackFromDSLD } from "@/lib/dsld-api";
+import type { Goal, TeaserResult, ParsedIngredient } from "@/types";
 
 const BodySchema = z.object({
   rawInput: z.string().min(3).max(5000),
@@ -27,10 +29,74 @@ export async function POST(req: NextRequest) {
 
     const { rawInput, goals, sessionId } = parsed.data;
 
-    // Parse raw input
-    const ingredients = parseStackText(rawInput);
+    // Step 1: Try DSLD enrichment if input looks like product names
+    let dsldEnrichedIngredients: ParsedIngredient[] = [];
+    let dsldProducts: any[] = [];
+    
+    if (hasProductInfo(rawInput)) {
+      try {
+        const products = extractProducts(rawInput);
+        if (products.length > 0) {
+          const enrichmentResult = await enrichStackFromDSLD(products);
+          
+          // Convert enrichment results to our format
+          for (let i = 0; i < enrichmentResult.length; i++) {
+            const dsldProduct = enrichmentResult[i];
+            const inputProduct = products[i];
+            
+            if (dsldProduct && dsldProduct.ingredients) {
+              // Store full DSLD data for display
+              dsldProducts.push({
+                input: inputProduct,
+                found: true,
+                dsld: {
+                  id: dsldProduct.id,
+                  fullName: dsldProduct.fullName,
+                  brandName: dsldProduct.brandName,
+                  upc: dsldProduct.upcSku,
+                  servingSize: dsldProduct.servingSizes?.[0] 
+                    ? `${dsldProduct.servingSizes[0].minQuantity} ${dsldProduct.servingSizes[0].unit}`
+                    : undefined,
+                  servingsPerContainer: dsldProduct.servingsPerContainer,
+                  offMarket: false,
+                  ingredients: dsldProduct.ingredients,
+                },
+              });
+              
+              // Convert to ParsedIngredient for rules engine
+              for (const ing of dsldProduct.ingredients) {
+                const formNote = ing.ingredientForm ? ` (as ${ing.ingredientForm})` : '';
+                dsldEnrichedIngredients.push({
+                  name: ing.name,
+                  dose: ing.quantity?.toString(),
+                  unit: ing.unit,
+                  raw: `${ing.name}${formNote} ${ing.quantity || ''}${ing.unit || ''}`,
+                });
+              }
+            } else {
+              // Product not found in DSLD
+              dsldProducts.push({
+                input: inputProduct,
+                found: false,
+                message: `${inputProduct.brand} ${inputProduct.productName} not found in DSLD database`,
+              });
+            }
+          }
+        }
+      } catch (error) {
+        console.warn('DSLD enrichment failed, falling back to text parsing:', error);
+      }
+    }
 
-    if (ingredients.length === 0) {
+    // Step 2: Parse raw input as fallback or supplement
+    const textParsedIngredients = parseStackText(rawInput);
+    
+    // Step 3: Merge DSLD enriched + text parsed (prefer DSLD)
+    const allIngredients = dsldEnrichedIngredients.length > 0 
+      ? dsldEnrichedIngredients 
+      : textParsedIngredients;
+
+    if (allIngredients.length === 0) {
       return NextResponse.json(
         { error: "Couldn't parse any ingredients. Try listing them one per line." },
         { status: 422 }
@@ -38,12 +104,12 @@ export async function POST(req: NextRequest) {
     }
 
     // Run rules engine
-    const rules = runRulesEngine(ingredients, goals as Goal[]);
+    const rules = runRulesEngine(allIngredients, goals as Goal[]);
 
     // Compute score
     const score = computeScore(
       rules.matched.length,
-      ingredients.length,
+      allIngredients.length,
       rules.interactions.length,
       rules.redundancies.length,
       rules.evidenceBreakdown.weak + rules.evidenceBreakdown.none,
@@ -54,19 +120,20 @@ export async function POST(req: NextRequest) {
     const teaser = buildTeaser(rules, score, goals as Goal[]);
 
     // Calculate stack scores (Evidence/Safety/Optimization/Value)
-    const ingredientNames = ingredients.map(ing => ing.name);
+    const ingredientNames = allIngredients.map(ing => ing.name);
     const userGoals = { primary: [goals[0]], secondary: goals.slice(1) };
     const stackScores = calculateStackScores(ingredientNames, userGoals);
 
     // Persist session + audit to Supabase
     const supabase = getSupabaseServer();
 
-    // Upsert session
+    // Upsert session with DSLD data
     await supabase.from("sessions").upsert({
       id: sessionId,
       raw_input: rawInput,
       goals: JSON.stringify(goals),
-      ingredients: JSON.stringify(ingredients),
+      ingredients: JSON.stringify(allIngredients),
+      dsld_products: dsldProducts.length > 0 ? JSON.stringify(dsldProducts) : null,
     });
 
     // Create audit row
@@ -102,9 +169,12 @@ export async function POST(req: NextRequest) {
       auditId: auditRow.id,
       score,
       teaser,
-      ingredientCount: ingredients.length,
+      ingredientCount: allIngredients.length,
       matchedCount: rules.matched.length,
       stackScores,
+      dsldEnriched: dsldProducts.length > 0,
+      dsldProductCount: dsldProducts.filter(p => p.found).length,
+      dsldProducts, // Include full DSLD data in response
     });
   } catch (err) {
     console.error("parse-stack error:", err);

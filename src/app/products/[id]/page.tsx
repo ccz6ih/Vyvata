@@ -41,6 +41,7 @@ interface ScoreRow {
   transparency_score: number | null;
   sustainability_score: number | null;
   scored_at: string;
+  is_current: boolean;
 }
 
 interface ProductData {

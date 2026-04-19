@@ -77,6 +77,11 @@ export default function ProcessingPage() {
           sessionStorage.setItem("vv_stack_scores", JSON.stringify(data.stackScores));
         }
         
+        // Store DSLD products if enriched
+        if (data.dsldProducts && data.dsldProducts.length > 0) {
+          sessionStorage.setItem("sr_dsld_products", JSON.stringify(data.dsldProducts));
+        }
+        
         setTimeout(() => {
           router.push(`/protocol/${data.publicSlug}?new=1`);
         }, 600);

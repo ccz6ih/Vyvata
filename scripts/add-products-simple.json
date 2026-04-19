@@ -1,0 +1,70 @@
+{
+  "products": [
+    {
+      "brand": "Garden of Life",
+      "name": "Vitamin Code Men",
+      "category": "multivitamin",
+      "serving_size": "4 capsules",
+      "servings_per_container": 30,
+      "price_usd": 49.99,
+      "ingredients": [
+        {
+          "ingredient_name": "Vitamin A",
+          "dose": 2500,
+          "unit": "IU",
+          "form": "beta-carotene",
+          "bioavailability": "medium",
+          "display_order": 1
+        },
+        {
+          "ingredient_name": "Vitamin D",
+          "dose": 2000,
+          "unit": "IU",
+          "form": "D3",
+          "bioavailability": "high",
+          "display_order": 2
+        },
+        {
+          "ingredient_name": "Vitamin B12",
+          "dose": 8,
+          "unit": "mcg",
+          "form": "methylcobalamin",
+          "bioavailability": "high",
+          "display_order": 3
+        }
+      ],
+      "certifications": [
+        { "type": "non_gmo", "verified": true },
+        { "type": "organic_usda", "verified": true },
+        { "type": "gluten_free", "verified": true }
+      ]
+    },
+    {
+      "brand": "Optimum Nutrition",
+      "name": "Opti-Men",
+      "category": "multivitamin",
+      "serving_size": "3 tablets",
+      "servings_per_container": 90,
+      "price_usd": 29.99,
+      "ingredients": [
+        {
+          "ingredient_name": "Vitamin D",
+          "dose": 3000,
+          "unit": "IU",
+          "form": "D3",
+          "bioavailability": "high",
+          "display_order": 1
+        },
+        {
+          "ingredient_name": "Vitamin B12",
+          "dose": 100,
+          "unit": "mcg",
+          "form": "cyanocobalamin",
+          "bioavailability": "low",
+          "display_order": 2
+        }
+      ],
+      "certifications": []
+    }
+  ]
+}

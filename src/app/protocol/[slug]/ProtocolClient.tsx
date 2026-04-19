@@ -13,6 +13,7 @@ import type { AuditResult, ReportSection, WorkingItem, WastingItem, FightingItem
 import { VyvataLogo } from "@/components/VyvataLogo";
 import { ProtocolEvidenceSection } from "@/components/ProtocolEvidenceSection";
 import { StackScoreCard } from "@/components/StackScoreCard";
+import { DSLDProductInfo } from "@/components/DSLDProductInfo";
 import type { StackScore } from "@/lib/scoring-engine";
 
 // ── SHARED COMPONENTS ─────────────────────────────────────────
@@ -480,6 +481,7 @@ export default function ProtocolClient({ slug }: { slug: string }) {
   const [quizAnswers, setQuizAnswers] = useState<Record<string, unknown> | null>(null);
   const [stackScores, setStackScores] = useState<StackScore | null>(null);
   const [unlockingStep, setUnlockingStep] = useState(0);
+  const [dsldProducts, setDsldProducts] = useState<any[]>([]);
 
   const UNLOCK_STEPS = [
     "Analyzing your stack composition...",
@@ -521,6 +523,17 @@ export default function ProtocolClient({ slug }: { slug: string }) {
             teaser: data.teaser,
             isUnlocked: false,
           });
+          
+          // Load DSLD products if available
+          if (data.dsldEnriched) {
+            const dsldCached = sessionStorage.getItem("sr_dsld_products");
+            if (dsldCached) {
+              try {
+                setDsldProducts(JSON.parse(dsldCached));
+              } catch {}
+            }
+          }
+          
           setLoading(false);
           return;
         }
@@ -893,9 +906,13 @@ export default function ProtocolClient({ slug }: { slug: string }) {
           <ScoreRing score={audit.score} />
         </div>
 
+        {/* DSLD Product Info - Show verified products from NIH database */}
+        {dsldProducts.length > 0 && (
+          <DSLDProductInfo products={dsldProducts} />
+        )}
+
         {/* Teaser findings */}
-        <div className="space-y-3">
-          {teaser.headlineFindings.map((finding, i) => (
+        <div className="space-y-3">{teaser.headlineFindings.map((finding, i) => (
             <div
               key={i}
               className="flex items-start gap-3 rounded-xl px-4 py-3.5"
