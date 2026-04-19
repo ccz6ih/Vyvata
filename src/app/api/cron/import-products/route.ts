@@ -2,7 +2,8 @@
  * Cron endpoint: Daily product import from DSLD
  * 
  * Schedule: 1 AM daily (before cache refresh at 2 AM)
- * Imports ~450 new products per run across all categories
+ * Imports ~150 new products per run across all categories
+ * Optimized to complete within Vercel's 5-minute timeout
  * 
  * Vercel Cron: 0 1 * * * (daily at 1 AM)
  * Manual test: POST /api/cron/import-products
@@ -20,7 +21,7 @@ const supabase = createClient(
 );
 
 const CONFIG = {
-  maxProductsPerCategory: 30, // 15 categories × 30 = 450 products/day
+  maxProductsPerCategory: 10, // 15 categories × 10 = 150 products/day (optimized for Vercel timeout)
   categories: {
     'magnesium': ['magnesium glycinate', 'magnesium citrate', 'magnesium bisglycinate', 'magnesium malate'],
     'vitamin-d': ['vitamin d3', 'cholecalciferol', 'vitamin d 5000'],
@@ -161,23 +162,14 @@ async function discoverProducts() {
         
         for (const item of limited) {
           if (item.id && !discovered.has(item.id.toString())) {
-            // Check if already in database
-            const { data: existing } = await supabase
-              .from('products')
-              .select('id')
-              .eq('brand', item.brandName)
-              .eq('name', item.fullName)
-              .single();
+            // Skip database check - let upsert handle duplicates
+            // Fetch full product details
+            await new Promise(resolve => setTimeout(resolve, CONFIG.dsldRateLimit));
+            const fullProduct = await getDSLDProductById(item.id.toString());
             
-            if (!existing) {
-              // Fetch full product details
-              await new Promise(resolve => setTimeout(resolve, CONFIG.dsldRateLimit));
-              const fullProduct = await getDSLDProductById(item.id.toString());
-              
-              if (fullProduct) {
-                discovered.set(item.id.toString(), convertToVyvataFormat(fullProduct, category));
-                console.log(`    ✓ ${item.brandName} - ${item.fullName}`);
-              }
+            if (fullProduct) {
+              discovered.set(item.id.toString(), convertToVyvataFormat(fullProduct, category));
+              console.log(`    ✓ ${item.brandName} - ${item.fullName}`);
             }
           }
         }
