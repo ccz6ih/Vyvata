@@ -18,7 +18,7 @@ Paste your symptoms, goals, or current stack — however you have it.`;
 
 const PROTOCOLS = [
   {
-    icon: "/icons/Read a Good Book.svg",
+    icon: "/icons/Meditate.svg",
     title: "Cognitive Performance",
     tags: ["Focus", "Memory", "Clarity"],
     desc: "Sharpen attention, reduce brain fog, optimize cognitive output.",
@@ -30,7 +30,7 @@ const PROTOCOLS = [
     desc: "Restore restorative sleep cycles and accelerate physical recovery.",
   },
   {
-    icon: "/icons/Detoxify Your Body.svg",
+    icon: "/icons/Supplements.svg",
     title: "Inflammation & Longevity",
     tags: ["Inflammation", "Oxidative Stress", "Lifespan"],
     desc: "Target systemic inflammation and support long-term cellular health.",
