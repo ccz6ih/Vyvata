@@ -4,7 +4,6 @@ import { ArrowRight, Award, Filter, ArrowUpDown, DollarSign } from "lucide-react
 import { getSupabaseServer } from "@/lib/supabase";
 import { VyvataLogo } from "@/components/VyvataLogo";
 import AuthNavLink from "@/components/AuthNavLink";
-import { productUrl } from "@/lib/urls";
 import { TIER_COLOR } from "@/lib/tokens";
 import ProductGrid, { type GridProduct } from "./ProductGrid";
 
@@ -26,7 +25,7 @@ interface Row {
   price_per_serving: number | null;
   created_at: string | null;
   product_ingredients: Array<{ id: string }>;
-  certifications: Array<{ id: string; verified: boolean }>;
+  certifications: Array<{ id: string; verified: boolean; type: string }>;
   product_scores: Array<{
     integrity_score: number;
     tier: Tier;
@@ -49,6 +48,27 @@ const SORT_LABEL: Record<SortKey, string> = {
   recent: "Recently scored",
 };
 
+// Certifications surfaced as filter chips. Kept intentionally short —
+// these are the ones practitioners and athletes actually hunt for.
+// Full cert list (vegan, kosher, halal, gluten-free, etc.) is still
+// available per-product on the scorecard; they just don't earn UI
+// space as top-level filters.
+const CERT_FILTERS: Array<{ value: string; label: string }> = [
+  { value: "nsf_sport", label: "NSF Sport" },
+  { value: "nsf_gmp", label: "NSF GMP" },
+  { value: "usp_verified", label: "USP Verified" },
+  { value: "informed_sport", label: "Informed Sport" },
+  { value: "non_gmo", label: "Non-GMO" },
+  { value: "organic_usda", label: "USDA Organic" },
+];
+
+const PRICE_FILTERS: Array<{ value: string; label: string }> = [
+  { value: "under-0.50", label: "Under $0.50" },
+  { value: "0.50-1", label: "$0.50–$1" },
+  { value: "1-2", label: "$1–$2" },
+  { value: "over-2", label: "Over $2" },
+];
+
 export default async function ProductsCataloguePage({
   searchParams,
 }: {
@@ -57,11 +77,15 @@ export default async function ProductsCataloguePage({
     category?: string;
     sort?: string;
     show_unscored?: string;
+    cert?: string;
+    price?: string;
   }>;
 }) {
   const sp = await searchParams;
   const tier = sp.tier;
   const category = sp.category;
+  const cert = sp.cert;
+  const price = sp.price;
   const sort: SortKey = (["score", "brand", "recent"] as const).includes(sp.sort as SortKey)
     ? (sp.sort as SortKey)
     : "score";
@@ -74,7 +98,7 @@ export default async function ProductsCataloguePage({
     .select(`
       id, slug, brand, name, category, price_per_serving, created_at,
       product_ingredients (id),
-      certifications (id, verified),
+      certifications (id, verified, type),
       product_scores (integrity_score, tier, is_current)
     `)
     .eq("status", "active")
@@ -109,6 +133,25 @@ export default async function ProductsCataloguePage({
   if (category) {
     filtered = filtered.filter((r) => r.category === category);
   }
+  if (cert) {
+    filtered = filtered.filter((r) =>
+      r.certifications.some((c) => c.verified && c.type === cert)
+    );
+  }
+  if (price) {
+    filtered = filtered.filter((r) => {
+      const pv = r.price_per_serving;
+      if (pv == null) return false;
+      const n = Number(pv);
+      switch (price) {
+        case "under-0.50": return n < 0.5;
+        case "0.50-1": return n >= 0.5 && n < 1;
+        case "1-2": return n >= 1 && n < 2;
+        case "over-2": return n >= 2;
+        default: return true;
+      }
+    });
+  }
 
   // Sort routing.
   filtered.sort((a, b) => {
@@ -132,16 +175,20 @@ export default async function ProductsCataloguePage({
 
   // Build URL-preserving link builder so filter changes don't reset each
   // other. E.g., picking a tier with an active sort keeps the sort.
-  const buildUrl = (next: Partial<{ tier?: string; category?: string; sort?: SortKey; show_unscored?: string }>) => {
+  const buildUrl = (next: Partial<{ tier?: string; category?: string; sort?: SortKey; show_unscored?: string; cert?: string; price?: string }>) => {
     const p = new URLSearchParams();
     const t = next.tier !== undefined ? next.tier : tier;
     const c = next.category !== undefined ? next.category : category;
     const s = next.sort !== undefined ? next.sort : sort;
     const u = next.show_unscored !== undefined ? next.show_unscored : (showUnscored ? "1" : undefined);
+    const ce = next.cert !== undefined ? next.cert : cert;
+    const pr = next.price !== undefined ? next.price : price;
     if (t) p.set("tier", t);
     if (c) p.set("category", c);
     if (s && s !== "score") p.set("sort", s);
     if (u) p.set("show_unscored", u);
+    if (ce) p.set("cert", ce);
+    if (pr) p.set("price", pr);
     const qs = p.toString();
     return qs ? `/products?${qs}` : "/products";
   };
@@ -375,116 +422,73 @@ export default async function ProductsCataloguePage({
               )}
             </div>
           )}
-        </div>
 
-        {/* ── RESULT COUNT ─────────────────────────────────── */}
-        <div className="flex items-center justify-between text-xs" style={{ color: "#7A90A8" }}>
-          <span>
-            Showing <strong style={{ color: "#C9D6DF" }}>{filtered.length}</strong>
-            {" "}of {scoredCount + (showUnscored ? unscoredCount : 0)} products
-            {tier && ` · ${TIER_LABEL[tier as Tier]} tier`}
-            {category && ` · ${category}`}
-          </span>
-          {(tier || category || showUnscored || sort !== "score") && (
-            <Link
-              href="/products"
-              className="hover:text-white transition-colors"
-            >
-              Reset filters
-            </Link>
-          )}
-        </div>
-
-        {/* ── PRODUCTS LIST ────────────────────────────────── */}
-        {filtered.length === 0 ? (
+          {/* Certification + Price filters */}
           <div
-            className="rounded-2xl p-12 text-center"
-            style={{ background: "rgba(17,32,64,0.4)", border: "1px dashed rgba(201,214,223,0.12)" }}
+            className="flex flex-col lg:flex-row lg:items-start gap-5 pt-4 border-t"
+            style={{ borderColor: "rgba(201,214,223,0.06)" }}
           >
-            <p className="text-base font-semibold text-white" style={{ fontFamily: "Montserrat, sans-serif" }}>
-              No products match these filters
-            </p>
-            <p className="text-sm mt-2" style={{ color: "#7A90A8" }}>
-              {rows.length === 0
-                ? "Products will appear here as they're ingested from the NIH DSLD registry."
-                : "Try clearing filters or a different tier."}
-            </p>
-            {rows.length > 0 && (
-              <Link
-                href="/products"
-                className="inline-flex items-center gap-1.5 mt-4 text-sm font-semibold"
-                style={{ color: "#14B8A6", fontFamily: "Montserrat, sans-serif" }}
-              >
-                Reset filters
-                <ArrowRight size={13} />
-              </Link>
-            )}
+            <div className="flex-1 space-y-2">
+              <div className="flex items-center gap-2 text-[10px] font-semibold tracking-widest uppercase" style={{ color: "#7A90A8" }}>
+                <Award size={11} />
+                <span>Certification</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                <CategoryChip href={buildUrl({ cert: "" })} label="Any" active={!cert} />
+                {CERT_FILTERS.map((c) => (
+                  <CategoryChip
+                    key={c.value}
+                    href={buildUrl({ cert: c.value })}
+                    label={c.label}
+                    active={cert === c.value}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="flex-1 space-y-2">
+              <div className="flex items-center gap-2 text-[10px] font-semibold tracking-widest uppercase" style={{ color: "#7A90A8" }}>
+                <DollarSign size={11} />
+                <span>Price per serving</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                <CategoryChip href={buildUrl({ price: "" })} label="Any" active={!price} />
+                {PRICE_FILTERS.map((pf) => (
+                  <CategoryChip
+                    key={pf.value}
+                    href={buildUrl({ price: pf.value })}
+                    label={pf.label}
+                    active={price === pf.value}
+                  />
+                ))}
+              </div>
+            </div>
           </div>
-        ) : (
-          <div className="space-y-3">
-            {filtered.map((p) => {
-              const s = p.current;
-              const tierColor = s ? TIER_COLOR[s.tier] : "#4a6080";
-              const certs = p.certifications.filter((c) => c.verified).length;
-              return (
-                <Link
-                  key={p.id}
-                  href={productUrl(p)}
-                  className="group rounded-xl px-5 py-4 flex items-center gap-5 transition-all"
-                  style={{
-                    background: "rgba(17,32,64,0.6)",
-                    border: "1px solid rgba(201,214,223,0.08)",
-                  }}
-                >
-                  {/* Score ring */}
-                  <ScoreBadge score={s?.integrity_score ?? null} tier={s?.tier ?? null} />
+        </div>
 
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-baseline gap-2 flex-wrap">
-                      <p
-                        className="text-sm md:text-base font-bold text-white truncate"
-                        style={{ fontFamily: "Montserrat, sans-serif" }}
-                      >
-                        {p.brand}
-                      </p>
-                      <p className="text-sm truncate" style={{ color: "#C9D6DF" }}>
-                        {p.name}
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-xs" style={{ color: "#7A90A8" }}>
-                      {p.category && (
-                        <span className="capitalize">{p.category.replace(/_/g, " ")}</span>
-                      )}
-                      {p.price_per_serving != null && (
-                        <span>${Number(p.price_per_serving).toFixed(2)}/serving</span>
-                      )}
-                      {certs > 0 && (
-                        <span className="inline-flex items-center gap-1" style={{ color: "#14B8A6" }}>
-                          <Award size={11} />
-                          {certs} cert{certs === 1 ? "" : "s"}
-                        </span>
-                      )}
-                      {p.product_ingredients.length > 0 && (
-                        <span>{p.product_ingredients.length} ingredient{p.product_ingredients.length === 1 ? "" : "s"}</span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* CTA arrow */}
-                  <div
-                    className="hidden md:flex items-center gap-1.5 text-xs font-semibold opacity-40 group-hover:opacity-100 transition-opacity shrink-0"
-                    style={{ color: tierColor, fontFamily: "Montserrat, sans-serif" }}
-                  >
-                    View scorecard
-                    <ArrowRight size={13} />
-                  </div>
-                  <ArrowRight size={14} className="md:hidden shrink-0" style={{ color: "#4a6080" }} />
-                </Link>
-              );
-            })}
+        {/* ── RESET FILTERS (when any active) ──────────────── */}
+        {(tier || category || cert || price || showUnscored || sort !== "score") && (
+          <div className="flex items-center justify-between text-xs" style={{ color: "#7A90A8" }}>
+            <span>
+              {[
+                tier && TIER_LABEL[tier as Tier] + " tier",
+                category && category.replace(/_/g, " "),
+                cert && CERT_FILTERS.find((c) => c.value === cert)?.label,
+                price && PRICE_FILTERS.find((p) => p.value === price)?.label,
+                showUnscored && "Including unscored",
+                sort !== "score" && SORT_LABEL[sort],
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </span>
+            <Link href="/products" className="hover:text-white transition-colors font-semibold">
+              Reset all filters
+            </Link>
           </div>
         )}
+
+        {/* ── PRODUCT GRID ─────────────────────────────────── */}
+        <ProductGrid products={filtered as unknown as GridProduct[]} totalCount={rows.length} />
 
         {/* ── METHODOLOGY FOOTER NOTE ──────────────────────── */}
         <div
@@ -547,76 +551,6 @@ export default async function ProductsCataloguePage({
 // ─────────────────────────────────────────────────────────────
 // Helper components
 // ─────────────────────────────────────────────────────────────
-
-/**
- * Compact score badge rendered as an SVG arc — the per-row visual anchor.
- * Mirrors the full ScoreRing language (tier color + arc + centered number)
- * at 60px so the row stays scannable. Unscored products render a subdued
- * dash in the same footprint so layout doesn't shift.
- */
-function ScoreBadge({ score, tier }: { score: number | null; tier: Tier | null }) {
-  const SIZE = 60;
-  const STROKE = 5;
-  const RADIUS = (SIZE - STROKE) / 2;
-  const CIRC = 2 * Math.PI * RADIUS;
-  const pct = Math.max(0, Math.min(100, score ?? 0));
-  const dashOffset = CIRC - (pct / 100) * CIRC;
-  const color = tier ? TIER_COLOR[tier] : "#4a6080";
-
-  if (score == null) {
-    return (
-      <div
-        className="flex items-center justify-center shrink-0 rounded-full"
-        style={{
-          width: SIZE,
-          height: SIZE,
-          background: "rgba(201,214,223,0.04)",
-          border: "1px dashed rgba(201,214,223,0.15)",
-        }}
-      >
-        <span className="text-xs" style={{ color: "#4a6080" }}>—</span>
-      </div>
-    );
-  }
-
-  return (
-    <div className="relative shrink-0" style={{ width: SIZE, height: SIZE }}>
-      <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`}>
-        <circle
-          cx={SIZE / 2}
-          cy={SIZE / 2}
-          r={RADIUS}
-          stroke="rgba(201,214,223,0.08)"
-          strokeWidth={STROKE}
-          fill="none"
-        />
-        <circle
-          cx={SIZE / 2}
-          cy={SIZE / 2}
-          r={RADIUS}
-          stroke={color}
-          strokeWidth={STROKE}
-          strokeLinecap="round"
-          fill="none"
-          strokeDasharray={CIRC}
-          strokeDashoffset={dashOffset}
-          transform={`rotate(-90 ${SIZE / 2} ${SIZE / 2})`}
-        />
-      </svg>
-      <div
-        className="absolute inset-0 flex items-center justify-center"
-        style={{ fontFamily: "Montserrat, sans-serif" }}
-      >
-        <span
-          className="text-lg font-black leading-none tabular-nums"
-          style={{ color }}
-        >
-          {score}
-        </span>
-      </div>
-    </div>
-  );
-}
 
 /**
  * Pill-style tier filter. Same visual language as the original; kept for
