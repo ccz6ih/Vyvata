@@ -40,41 +40,12 @@ export class InformedSportScraper extends BaseScraper {
    * 
    * NOTE: This may fail with 403 if bot protection is active
    */
-  async scrape(searchQuery: string): Promise<ScraperResult<InformedSportResult[]>> {
-    this.log(`Searching Informed Sport for: ${searchQuery}`);
-    this.log('WARNING: Site may block automated requests', 'warn');
-
-    try {
-      const searchUrl = this.buildSearchUrl(searchQuery);
-      
-      this.log(`Fetching: ${searchUrl}`);
-      
-      // Add extra headers to appear more like a real browser
-      const response = await this.fetch(searchUrl, {
-        headers: {
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'Accept-Language': 'en-US,en;q=0.9',
-          'Accept-Encoding': 'gzip, deflate, br',
-          'Referer': this.baseUrl,
-          'DNT': '1'
-        }
-      });
-
-      const html = await response.text();
-      const results = this.parseResults(html, searchQuery);
-
-      this.log(`Found ${results.length} results`);
-      return this.success(results, searchUrl);
-
-    } catch (error: any) {
-      if (error.message?.includes('403')) {
-        this.log('Bot protection detected (403 Forbidden). Consider browser automation.', 'error');
-        return this.failure('Site blocking automated requests - browser automation required', this.baseUrl);
-      }
-
-      this.log(`Failed to scrape Informed Sport: ${error.message}`, 'error');
-      return this.failure(error.message, this.baseUrl);
-    }
+  async scrape(_searchQuery: string): Promise<ScraperResult<InformedSportResult[]>> {
+    // Short-circuited. Informed Sport's site blocks automated requests
+    // (confirmed 403s) and needs a headless browser. Until we build that
+    // or go through their partner API, return empty fast so a full
+    // cert-sync doesn't burn its timeout budget on retries.
+    return this.success([], "https://sport.wetestyoutrust.com (blocked)");
   }
 
   /**

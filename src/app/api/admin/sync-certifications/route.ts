@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { syncAllProductCertifications, syncProductCertifications } from '@/lib/scrapers/certification-sync';
 import { hasAdminSession } from '@/lib/admin-auth';
 
+// 165 products × real NSF registry fetch + per-product match comfortably
+// fits in ~60s once USP/Informed stubs are short-circuited. Raising to
+// Vercel Pro's 300s ceiling in case the catalogue keeps growing.
+export const maxDuration = 300;
+
 /**
  * POST /api/admin/sync-certifications
  *
