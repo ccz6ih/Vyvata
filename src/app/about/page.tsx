@@ -174,7 +174,7 @@ export default function AboutPage() {
                 {
                   icon: Database,
                   title: "NIH-Sourced Products",
-                  desc: "69+ products from the NIH Dietary Supplement Label Database (DSLD), with daily data refresh."
+                  desc: "200+ products from the NIH Dietary Supplement Label Database (DSLD), with daily data refresh."
                 },
                 {
                   icon: BarChart3,

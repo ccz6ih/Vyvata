@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import {
-  ArrowLeft, Award, Beaker, CheckCircle2, ShieldCheck, Sparkles,
+  ArrowLeft, ArrowRight, Award, Beaker, CheckCircle2, ShieldCheck, Sparkles,
   Microscope, Factory, Eye, Leaf, ExternalLink, AlertTriangle, BookOpen,
 } from "lucide-react";
 import type { Metadata } from "next";
 import { getSupabaseServer } from "@/lib/supabase";
 import { VyvataLogo } from "@/components/VyvataLogo";
+import AuthNavLink from "@/components/AuthNavLink";
 import ShareButtons from "@/components/ShareButtons";
 import GapReportBlock from "@/components/GapReportBlock";
 import ScoreRing from "@/components/scorecard/ScoreRing";
@@ -325,23 +326,64 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
 
   return (
     <main className="min-h-dvh" style={{ background: "#0B1F3B", fontFamily: "Inter, sans-serif" }}>
-      {/* NAV */}
-      <header
-        className="px-6 py-4 border-b flex items-center justify-between max-w-5xl mx-auto"
+      {/* NAV — matches homepage / products catalogue */}
+      <nav
+        className="px-6 py-5 flex items-center justify-between max-w-6xl mx-auto border-b"
         style={{ borderColor: "rgba(201,214,223,0.08)" }}
       >
-        <Link href="/" className="flex items-center gap-2.5">
-          <VyvataLogo size={22} />
-          <span className="text-sm font-bold text-white" style={{ fontFamily: "Montserrat, sans-serif" }}>
+        <Link href="/" className="flex items-center gap-3">
+          <VyvataLogo size={28} />
+          <span
+            className="text-lg font-bold tracking-tight text-white"
+            style={{ fontFamily: "Montserrat, Inter, sans-serif" }}
+          >
             Vyvata
           </span>
         </Link>
-        <Link href="/products" className="flex items-center gap-1.5 text-xs" style={{ color: "#7A90A8" }}>
-          <ArrowLeft size={12} /> All products
+        <div
+          className="hidden md:flex items-center gap-6 text-sm"
+          style={{ color: "#C9D6DF" }}
+        >
+          <Link href="/products" className="hover:text-white transition-colors">
+            Scores
+          </Link>
+          <Link href="/methodology" className="hover:text-white transition-colors">
+            Methodology
+          </Link>
+          <Link href="/#how" className="hover:text-white transition-colors">
+            How it works
+          </Link>
+          <Link href="/#practitioners" className="hover:text-white transition-colors">
+            For Practitioners
+          </Link>
+          <Link href="/about" className="hover:text-white transition-colors">
+            About
+          </Link>
+          <AuthNavLink />
+        </div>
+        <Link
+          href="/products"
+          className="md:hidden flex items-center gap-1.5 text-xs"
+          style={{ color: "#7A90A8" }}
+        >
+          <ArrowLeft size={12} /> All scores
         </Link>
-      </header>
+      </nav>
 
-      <div className="max-w-3xl mx-auto px-6 py-10 space-y-8">
+      {/* Breadcrumb row (desktop) */}
+      <div
+        className="hidden md:block max-w-4xl mx-auto px-6 pt-6"
+      >
+        <Link
+          href="/products"
+          className="inline-flex items-center gap-1.5 text-xs hover:text-white transition-colors"
+          style={{ color: "#7A90A8" }}
+        >
+          <ArrowLeft size={12} /> All scores
+        </Link>
+      </div>
+
+      <div className="max-w-4xl mx-auto px-6 py-8 md:py-10 space-y-8">
 
         {/* ── Hero: identity + score ring ── */}
         <section className="grid md:grid-cols-[1fr_260px] gap-8 items-center">
@@ -411,12 +453,13 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
             )}
           </div>
 
-          <div className="order-1 md:order-2 flex justify-center md:justify-end">
+          <div className="order-1 md:order-2 flex flex-col items-center md:items-end gap-3">
             <ScoreRing
               score={score?.integrity_score ?? null}
               tier={score?.tier ?? null}
               mode={activeMode}
             />
+            {score && <TierContextCaption score={score.integrity_score} tier={score.tier} />}
           </div>
         </section>
 
@@ -499,6 +542,40 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
                 : `Check out ${product.brand} ${product.name} on Vyvata.`
             }
           />
+        </div>
+
+        {/* ── Methodology CTA ── */}
+        <div
+          className="rounded-xl p-5 md:p-6 flex flex-col md:flex-row md:items-center gap-4"
+          style={{
+            background: "rgba(20, 184, 166, 0.04)",
+            border: "1px solid rgba(20, 184, 166, 0.15)",
+          }}
+        >
+          <div className="flex-1">
+            <p
+              className="text-sm font-semibold text-white mb-1"
+              style={{ fontFamily: "Montserrat, sans-serif" }}
+            >
+              How was this score calculated?
+            </p>
+            <p className="text-xs leading-relaxed" style={{ color: "#C9D6DF" }}>
+              Six weighted dimensions, derived from FDA, NIH, NSF, USP, and peer-reviewed literature. The full methodology — including tier thresholds, AI Inferred vs Verified modes, and honest limitations — is public.
+            </p>
+          </div>
+          <Link
+            href="/methodology"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all shrink-0"
+            style={{
+              border: "1px solid rgba(20, 184, 166, 0.4)",
+              color: "#14B8A6",
+              background: "transparent",
+              fontFamily: "Montserrat, sans-serif",
+            }}
+          >
+            Read methodology
+            <ArrowRight size={14} />
+          </Link>
         </div>
 
         <p className="text-center text-xs pb-6" style={{ color: "#4a6080" }}>
@@ -862,4 +939,54 @@ function findMatchingEvidence(ingredients: IngredientRow[]): EvidenceSummary[] {
     if (hit) matched.push(summary);
   }
   return matched;
+}
+
+
+/**
+ * Small tier-context caption shown under the score ring.
+ * Gives the visitor absolute context: "Your score of 87 sits in the
+ * Verified band (75–89). Elite starts at 90." Matches the tier
+ * thresholds documented on /methodology and defined in
+ * src/lib/product-scoring.ts tierFor().
+ */
+function TierContextCaption({ score, tier }: { score: number; tier: Tier }) {
+  const RANGES: Record<Tier, { label: string; range: string; next: string | null }> = {
+    elite: { label: "Elite", range: "90–100", next: null },
+    verified: { label: "Verified", range: "75–89", next: "Elite at 90+" },
+    standard: { label: "Standard", range: "60–74", next: "Verified at 75+" },
+    rejected: { label: "Rejected", range: "0–59", next: "Standard at 60+" },
+  };
+  const info = RANGES[tier];
+  const color = TIER_COLOR[tier];
+  const toNext =
+    tier === "verified" ? 90 - score :
+    tier === "standard" ? 75 - score :
+    tier === "rejected" ? 60 - score : 0;
+
+  return (
+    <div
+      className="rounded-xl px-4 py-3 text-center md:text-right space-y-1 max-w-[240px]"
+      style={{
+        background: `${color}08`,
+        border: `1px solid ${color}20`,
+      }}
+    >
+      <p
+        className="text-[10px] font-semibold uppercase tracking-widest"
+        style={{ color, fontFamily: "Montserrat, sans-serif" }}
+      >
+        {info.label} tier · {info.range}
+      </p>
+      {info.next && toNext > 0 && (
+        <p className="text-[10px]" style={{ color: "#7A90A8", fontFamily: "Inter, sans-serif" }}>
+          {toNext} point{toNext === 1 ? "" : "s"} to {info.next}
+        </p>
+      )}
+      {tier === "elite" && (
+        <p className="text-[10px]" style={{ color: "#7A90A8", fontFamily: "Inter, sans-serif" }}>
+          Top integrity band
+        </p>
+      )}
+    </div>
+  );
 }
