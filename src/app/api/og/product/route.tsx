@@ -8,11 +8,21 @@ import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "edge";
 
+// Tier colors as plain hex. Companion TIER_TINT is the low-alpha fill for
+// backgrounds — kept as rgba() strings instead of 8-char hex because
+// Satori (the engine behind next/og ImageResponse) has documented parser
+// flakiness on #RRGGBBAA syntax and silently produces empty output.
 const TIER_COLOR: Record<string, string> = {
   elite: "#a78bfa",
   verified: "#14B8A6",
   standard: "#F59E0B",
   rejected: "#F87171",
+};
+const TIER_TINT: Record<string, string> = {
+  elite: "rgba(167,139,250,0.14)",
+  verified: "rgba(20,184,166,0.14)",
+  standard: "rgba(245,158,11,0.14)",
+  rejected: "rgba(248,113,113,0.14)",
 };
 
 interface Row {
@@ -115,7 +125,7 @@ export async function GET(req: Request) {
               width: 260,
               height: 260,
               borderRadius: 24,
-              background: hasScore ? `${tierColor}22` : "rgba(17,32,64,0.5)",
+              background: tier ? TIER_TINT[tier] ?? "rgba(17,32,64,0.5)" : "rgba(17,32,64,0.5)",
               border: `2px solid ${tierColor}`,
             }}
           >
