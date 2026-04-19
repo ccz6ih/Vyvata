@@ -50,38 +50,21 @@ export async function GET(req: NextRequest) {
             gap: 24,
           }}
         >
-          {/* Header row */}
+          {/* Header row. V-mark removed — small circled-background glyphs
+              are a known Satori crash trigger (same as the scorecard tier
+              pill). Wordmark carries enough identity at this size. */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 18,
-                  background: "rgba(20, 184, 166, 0.15)",
-                  border: "2px solid #14B8A6",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#14B8A6",
-                  fontSize: 18,
-                  fontWeight: 800,
-                }}
-              >
-                V
-              </div>
-              <div style={{ color: "#ffffff", fontSize: 22, fontWeight: 700, letterSpacing: 2 }}>
-                VYVATA
-              </div>
+            <div style={{ color: "#14B8A6", fontSize: 22, fontWeight: 800, letterSpacing: 6 }}>
+              VYVATA
             </div>
             <div style={{ color: "#4a6080", fontSize: 12, letterSpacing: 2 }}>
               #{slug.toUpperCase()}
             </div>
           </div>
 
-          {/* Divider — a non-empty flex row so Satori doesn't choke on
-              bare borderTop-only divs. */}
-          <div style={{ display: "flex", width: "100%", height: 1, background: "rgba(20, 184, 166, 0.2)" }} />
+          {/* Divider — plain solid-color block, not flex (empty flex rows
+              sometimes trip Satori's layout pass). */}
+          <div style={{ width: "100%", height: 1, background: "rgba(20, 184, 166, 0.2)" }} />
 
           {/* Score row */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -107,7 +90,7 @@ export async function GET(req: NextRequest) {
             </div>
           </div>
 
-          <div style={{ display: "flex", width: "100%", height: 1, background: "rgba(20, 184, 166, 0.2)" }} />
+          <div style={{ width: "100%", height: 1, background: "rgba(20, 184, 166, 0.2)" }} />
 
           {/* Findings */}
           {finding1 && (
@@ -145,7 +128,7 @@ export async function GET(req: NextRequest) {
             </div>
           )}
 
-          <div style={{ display: "flex", width: "100%", height: 1, background: "rgba(20, 184, 166, 0.2)" }} />
+          <div style={{ width: "100%", height: 1, background: "rgba(20, 184, 166, 0.2)" }} />
 
           {/* Footer */}
           <div

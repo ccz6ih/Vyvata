@@ -3,7 +3,7 @@ import Image from "next/image";
 export function VyvataLogo({ size = 28 }: { size?: number }) {
   return (
     <Image
-      src="/logo/vyvata.png"
+      src="/logo/vyvata.svg"
       alt="Vyvata"
       width={size}
       height={size}
