@@ -300,13 +300,17 @@ export default function ProductsPage() {
   const [category, setCategory] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [minScore, setMinScore] = useState(0); // Default to 0 to show all products including unscored ones
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    console.log('useEffect triggered - fetching products');
     fetchProducts();
   }, [category, minScore]);
 
   const fetchProducts = async () => {
     setLoading(true);
+    setError(null);
+    console.log('fetchProducts called');
     try {
       const params = new URLSearchParams({
         limit: "50",
@@ -321,13 +325,23 @@ export default function ProductsPage() {
         params.set("ingredient", searchTerm.trim());
       }
 
-      const res = await fetch(`/api/practitioner/products/recommendations?${params}`);
-      if (!res.ok) throw new Error("Failed to fetch products");
+      const url = `/api/practitioner/products/recommendations?${params}`;
+      console.log('Fetching from:', url);
+      const res = await fetch(url);
+      console.log('Response status:', res.status);
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('Error response:', errorText);
+        throw new Error(`HTTP ${res.status}`);
+      }
       
       const data: RecommendationsResponse = await res.json();
+      console.log('Products received:', data.recommendations.length);
       setProducts(data.recommendations);
     } catch (error) {
       console.error("Error fetching products:", error);
+      setError(error instanceof Error ? error.message : 'Failed to load');
     } finally {
       setLoading(false);
     }
@@ -480,6 +494,23 @@ export default function ProductsPage() {
         </div>
 
         {/* Products Grid */}
+        {error && (
+          <div className="rounded-xl p-6 mb-6 text-center" style={{ 
+            background: "rgba(239,68,68,0.1)", 
+            border: "1px solid rgba(239,68,68,0.3)" 
+          }}>
+            <p className="text-sm font-semibold" style={{ color: "#FCA5A5" }}>
+              Error: {error}
+            </p>
+            <button
+              onClick={() => fetchProducts()}
+              className="mt-3 px-4 py-2 rounded-lg text-xs font-medium"
+              style={{ background: "rgba(239,68,68,0.2)", color: "#FCA5A5" }}
+            >
+              Retry
+            </button>
+          </div>
+        )}
         {loading ? (
           <div className="text-center py-20">
             <div className="inline-block w-8 h-8 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
@@ -491,6 +522,13 @@ export default function ProductsPage() {
             <p className="text-sm" style={{ color: "#7A90A8" }}>
               No products found matching your criteria
             </p>
+            <button
+              onClick={() => { setCategory('all'); setMinScore(0); setSearchTerm(''); }}
+              className="mt-4 px-4 py-2 rounded-lg text-xs font-medium"
+              style={{ background: "rgba(20,184,166,0.1)", color: "#14B8A6" }}
+            >
+              Reset Filters
+            </button>
           </div>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
