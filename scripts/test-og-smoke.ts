@@ -84,14 +84,25 @@ async function pickProbes(singleSlug?: string): Promise<Probe[]> {
     expectScored: false,
   });
 
-  if (probes.length === 1) {
+  // Protocol OG — different route, separate Satori crash history. Hit it
+  // with representative params; a passing probe here guards against
+  // regressions in the parallel /api/og pipeline.
+  probes.push({
+    label: "protocol-og",
+    slug: `__protocol__smoke-${Date.now()}`,
+    expectScored: false,
+  });
+
+  if (probes.length <= 2) {
     throw new Error("No scored products found — catalog may be empty.");
   }
   return probes;
 }
 
 async function probe(origin: string, p: Probe): Promise<{ ok: boolean; msg: string }> {
-  const target = `${origin}/api/og/product?slug=${encodeURIComponent(p.slug)}`;
+  const target = p.slug.startsWith("__protocol__")
+    ? `${origin}/api/og?slug=${encodeURIComponent(p.slug.replace("__protocol__", ""))}&score=75&f1=Test%20finding`
+    : `${origin}/api/og/product?slug=${encodeURIComponent(p.slug)}`;
   const res = await fetch(target, { cache: "no-store" });
   if (!res.ok) {
     return { ok: false, msg: `status=${res.status}` };

@@ -1,5 +1,11 @@
-// GET /api/og?slug=xxx
-// Generates a Vyvata-branded OG image for social sharing
+// GET /api/og?slug=xxx&score=N&f1=...&f2=...
+// Protocol share card. 1200×630 dark-gradient card for quiz/protocol shares.
+//
+// See comments in /api/og/product/route.tsx for the Satori crash triggers
+// that silently produce empty PNGs. This route was hit by one: the
+// pattern `<div>{number}<span>/100</span></div>` — a div with mixed text
+// and an element child without `display: flex` crashed Satori and returned
+// 200 OK with zero bytes. Refactored so every multi-child div is `flex`.
 
 import { ImageResponse } from "next/og";
 import { NextRequest } from "next/server";
@@ -8,12 +14,14 @@ export const runtime = "edge";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const slug = searchParams.get("slug") || "---";
-  const score = parseInt(searchParams.get("score") || "0");
-  const finding1 = searchParams.get("f1") || "AI protocol analysis complete.";
-  const finding2 = searchParams.get("f2") || "";
+  const slug = (searchParams.get("slug") || "---").slice(0, 40);
+  const scoreRaw = parseInt(searchParams.get("score") || "0", 10);
+  const score = Number.isFinite(scoreRaw) ? Math.max(0, Math.min(100, scoreRaw)) : 0;
+  const finding1 = (searchParams.get("f1") || "AI protocol analysis complete.").slice(0, 180);
+  const finding2 = (searchParams.get("f2") || "").slice(0, 180);
 
-  const scoreColor = score >= 70 ? "#14B8A6" : score >= 50 ? "#f59e0b" : "#f87171";
+  const scoreColor =
+    score >= 70 ? "#14B8A6" : score >= 50 ? "#f59e0b" : "#f87171";
 
   return new ImageResponse(
     (
@@ -42,15 +50,14 @@ export async function GET(req: NextRequest) {
             gap: 24,
           }}
         >
-          {/* Header */}
+          {/* Header row */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              {/* Vyvata V mark */}
               <div
                 style={{
                   width: 36,
                   height: 36,
-                  borderRadius: "50%",
+                  borderRadius: 18,
                   background: "rgba(20, 184, 166, 0.15)",
                   border: "2px solid #14B8A6",
                   display: "flex",
@@ -63,49 +70,94 @@ export async function GET(req: NextRequest) {
               >
                 V
               </div>
-              <div style={{ color: "#ffffff", fontSize: 22, fontWeight: 700, letterSpacing: "0.05em" }}>
+              <div style={{ color: "#ffffff", fontSize: 22, fontWeight: 700, letterSpacing: 2 }}>
                 VYVATA
               </div>
             </div>
-            <div style={{ color: "#4a6080", fontSize: 12, letterSpacing: "0.1em" }}>#{slug.toUpperCase()}</div>
-          </div>
-
-          {/* Divider */}
-          <div style={{ borderTop: "1px solid rgba(20, 184, 166, 0.2)", margin: "0 0" }} />
-
-          {/* Score */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-            <div style={{ color: "#8ba0b8", fontSize: 13, letterSpacing: "0.15em", textTransform: "uppercase" }}>
-              PROTOCOL SCORE
-            </div>
-            <div style={{ color: scoreColor, fontSize: 72, fontWeight: 900, lineHeight: 1 }}>
-              {score}
-              <span style={{ fontSize: 22, color: "#4a6080" }}>/100</span>
+            <div style={{ color: "#4a6080", fontSize: 12, letterSpacing: 2 }}>
+              #{slug.toUpperCase()}
             </div>
           </div>
 
-          {/* Divider */}
-          <div style={{ borderTop: "1px solid rgba(20, 184, 166, 0.2)" }} />
+          {/* Divider — a non-empty flex row so Satori doesn't choke on
+              bare borderTop-only divs. */}
+          <div style={{ display: "flex", width: "100%", height: 1, background: "rgba(20, 184, 166, 0.2)" }} />
+
+          {/* Score row */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div
+              style={{
+                color: "#8ba0b8",
+                fontSize: 13,
+                letterSpacing: 3,
+                textTransform: "uppercase",
+              }}
+            >
+              Protocol Score
+            </div>
+            {/* Mixed number + /100: both children are plain divs so the parent
+                can stay display:flex without the span-inline trap. */}
+            <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+              <div style={{ color: scoreColor, fontSize: 72, fontWeight: 900, lineHeight: 1 }}>
+                {score}
+              </div>
+              <div style={{ color: "#4a6080", fontSize: 22, fontWeight: 700 }}>
+                /100
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", width: "100%", height: 1, background: "rgba(20, 184, 166, 0.2)" }} />
 
           {/* Findings */}
           {finding1 && (
             <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
-              <span style={{ color: "#14B8A6", fontSize: 12, marginTop: 3, fontWeight: 700 }}>01</span>
-              <p style={{ color: "#c9d6df", fontSize: 15, lineHeight: 1.5, margin: 0, flex: 1 }}>{finding1}</p>
+              <div
+                style={{
+                  color: "#14B8A6",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  marginTop: 3,
+                }}
+              >
+                01
+              </div>
+              <div style={{ color: "#c9d6df", fontSize: 15, lineHeight: 1.5, flex: 1 }}>
+                {finding1}
+              </div>
             </div>
           )}
           {finding2 && (
             <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
-              <span style={{ color: "#14B8A6", fontSize: 12, marginTop: 3, fontWeight: 700 }}>02</span>
-              <p style={{ color: "#c9d6df", fontSize: 15, lineHeight: 1.5, margin: 0, flex: 1 }}>{finding2}</p>
+              <div
+                style={{
+                  color: "#14B8A6",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  marginTop: 3,
+                }}
+              >
+                02
+              </div>
+              <div style={{ color: "#c9d6df", fontSize: 15, lineHeight: 1.5, flex: 1 }}>
+                {finding2}
+              </div>
             </div>
           )}
 
+          <div style={{ display: "flex", width: "100%", height: 1, background: "rgba(20, 184, 166, 0.2)" }} />
+
           {/* Footer */}
-          <div style={{ borderTop: "1px solid rgba(20, 184, 166, 0.2)", paddingTop: 16 }}>
-            <div style={{ color: "#4a6080", fontSize: 12, letterSpacing: "0.1em", textAlign: "center" }}>
-              vyvata.com · AI-POWERED HEALTH PROTOCOL ENGINE
-            </div>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              color: "#4a6080",
+              fontSize: 12,
+              letterSpacing: 2,
+            }}
+          >
+            vyvata.com · AI-POWERED HEALTH PROTOCOL ENGINE
           </div>
         </div>
       </div>
@@ -113,6 +165,9 @@ export async function GET(req: NextRequest) {
     {
       width: 1200,
       height: 630,
+      headers: {
+        "cache-control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800",
+      },
     }
   );
 }
