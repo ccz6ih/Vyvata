@@ -4,6 +4,27 @@ Specialized AI agents for the Vyvata health platform. Each agent has deep domain
 
 ## Available Agents
 
+### 🤖 [Product Auto-Import Agent](.agents/product-auto-import-agent.md)
+**Automated product discovery and import from DSLD database with VSF scoring.**
+
+**Use when:**
+- Need to populate products database at scale (50-500+ products)
+- Want to discover popular supplements automatically
+- Need to update products weekly without manual work
+- Want VSF scores calculated automatically
+
+**Example prompts:**
+- "Import 50 popular magnesium products automatically"
+- "Run the auto-import agent for omega-3 and vitamin D"
+- "Discover and score all Thorne products"
+
+**Quick start:**
+```bash
+npx tsx scripts/auto-import-products.ts --limit 50
+```
+
+---
+
 ### 🎯 [Vyvata Project Orchestrator](.agent/vyvata-orchestrator.agent.md)
 **Main coordination agent for full-stack development, documentation, and quality assurance.**
 

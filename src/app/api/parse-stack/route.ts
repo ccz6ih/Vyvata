@@ -17,6 +17,7 @@ const BodySchema = z.object({
   rawInput: z.string().min(3).max(5000),
   goals: z.array(z.string()).min(1).max(3),
   sessionId: z.string().uuid(),
+  inviteToken: z.string().max(64).optional().nullable(),
 });
 
 export async function POST(req: NextRequest) {
@@ -27,7 +28,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid input" }, { status: 400 });
     }
 
-    const { rawInput, goals, sessionId } = parsed.data;
+    const { rawInput, goals, sessionId, inviteToken } = parsed.data;
 
     // Step 1: Try DSLD enrichment if input looks like product names
     let dsldEnrichedIngredients: ParsedIngredient[] = [];
@@ -163,6 +164,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // If the patient arrived via a practitioner invite link, attach them to
+    // that practitioner's panel. Non-fatal — if the invite is expired/revoked
+    // we just skip the link; the audit itself is already saved.
+    let invitedBy: { id: string; name: string } | null = null;
+    if (inviteToken) {
+      invitedBy = await consumeInvite({
+        supabase,
+        token: inviteToken,
+        sessionId,
+        auditId: auditRow.id as string,
+      });
+    }
+
     return NextResponse.json({
       sessionId,
       publicSlug: auditRow.public_slug,
@@ -175,10 +189,105 @@ export async function POST(req: NextRequest) {
       dsldEnriched: dsldProducts.length > 0,
       dsldProductCount: dsldProducts.filter(p => p.found).length,
       dsldProducts, // Include full DSLD data in response
+      invitedBy,
     });
   } catch (err) {
     console.error("parse-stack error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
+  }
+}
+
+/**
+ * If the incoming request carried a practitioner invite token, validate it and
+ * create the patient_link so the practitioner's dashboard picks up the new
+ * patient on the next refresh. Silently skips on any failure — the audit is
+ * saved regardless. Returns the practitioner's name for the client to render
+ * a "You're now connected to Dr. X" confirmation.
+ */
+async function consumeInvite({
+  supabase,
+  token,
+  sessionId,
+  auditId,
+}: {
+  supabase: ReturnType<typeof getSupabaseServer>;
+  token: string;
+  sessionId: string;
+  auditId: string;
+}): Promise<{ id: string; name: string } | null> {
+  try {
+    const { data: invite } = await supabase
+      .from("practitioner_invites")
+      .select("id, practitioner_id, label, notes, max_uses, use_count, expires_at, revoked_at")
+      .eq("token", token)
+      .maybeSingle();
+
+    if (!invite) return null;
+    const row = invite as {
+      id: string;
+      practitioner_id: string;
+      label: string | null;
+      notes: string | null;
+      max_uses: number | null;
+      use_count: number;
+      expires_at: string | null;
+      revoked_at: string | null;
+    };
+
+    if (row.revoked_at) return null;
+    if (row.expires_at && new Date(row.expires_at) < new Date()) return null;
+    if (row.max_uses != null && row.use_count >= row.max_uses) return null;
+
+    const { data: prac } = await supabase
+      .from("practitioners")
+      .select("name, is_active")
+      .eq("id", row.practitioner_id)
+      .maybeSingle();
+    if (!prac || !(prac as { is_active: boolean }).is_active) return null;
+
+    // Attach the audit to this practitioner's panel. Uses the same pattern as
+    // POST /api/practitioner/patients but without a practitioner session cookie.
+    const { data: quiz } = await supabase
+      .from("quiz_responses")
+      .select("id")
+      .eq("session_id", sessionId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    await supabase.from("patient_links").insert({
+      practitioner_id: row.practitioner_id,
+      session_id: sessionId,
+      audit_id: auditId,
+      quiz_response_id: (quiz as { id: string } | null)?.id ?? null,
+      patient_label: row.label,
+      notes: row.notes,
+    });
+
+    // Keep the patient_count column honest. Matches the logic we used in
+    // /api/practitioner/patients when we removed the missing increment RPC.
+    const { count } = await supabase
+      .from("patient_links")
+      .select("id", { count: "exact", head: true })
+      .eq("practitioner_id", row.practitioner_id)
+      .neq("status", "archived");
+    await supabase
+      .from("practitioners")
+      .update({ patient_count: count ?? 0 })
+      .eq("id", row.practitioner_id);
+
+    await supabase
+      .from("practitioner_invites")
+      .update({
+        use_count: row.use_count + 1,
+        last_used_at: new Date().toISOString(),
+      })
+      .eq("id", row.id);
+
+    return { id: row.practitioner_id, name: (prac as { name: string }).name };
+  } catch (err) {
+    console.error("[parse-stack] consumeInvite failed:", err);
+    return null;
   }
 }
 

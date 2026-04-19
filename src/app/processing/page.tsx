@@ -56,10 +56,13 @@ export default function ProcessingPage() {
     };
     animateSteps();
 
+    const inviteToken =
+      (typeof window !== "undefined" && sessionStorage.getItem("vv_invite_token")) || null;
+
     fetch("/api/parse-stack", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rawInput, goals, sessionId }),
+      body: JSON.stringify({ rawInput, goals, sessionId, inviteToken }),
     })
       .then(async (res) => {
         if (!res.ok) {
@@ -71,11 +74,15 @@ export default function ProcessingPage() {
       .then((data) => {
         setProgress(100);
         sessionStorage.setItem("sr_audit_result", JSON.stringify(data));
-        
+
         // Store stack scores if available
         if (data.stackScores) {
           sessionStorage.setItem("vv_stack_scores", JSON.stringify(data.stackScores));
         }
+
+        // Invite token was consumed server-side — clear it so subsequent
+        // audits in the same tab aren't re-attached to the practitioner.
+        if (inviteToken) sessionStorage.removeItem("vv_invite_token");
         
         // Store DSLD products if enriched
         if (data.dsldProducts && data.dsldProducts.length > 0) {

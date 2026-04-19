@@ -9,6 +9,7 @@ import {
 import type { PractitionerSession } from "@/lib/practitioner-auth";
 import { VyvataLogo } from "@/components/VyvataLogo";
 import PractitionerNav from "@/components/PractitionerNav";
+import InvitePatientButton from "@/components/InvitePatientButton";
 
 // ── CSV Export Helper ─────────────────────────────────────────────────────────
 function exportPatientsToCSV(patients: PatientLink[], practitionerName: string) {
@@ -602,19 +603,20 @@ export default function PractitionerDashboardClient({
                   </button>
                 </>
               )}
+              <InvitePatientButton />
               <button
                 onClick={() => setShowAdd(true)}
                 className="flex items-center gap-1.5 text-sm font-semibold px-3.5 py-2 rounded-xl transition-all"
                 style={{
-                  background: "linear-gradient(135deg, #14B8A6, #0F766E)",
-                  color: "#fff",
+                  background: "rgba(20,184,166,0.12)",
+                  border: "1px solid rgba(20,184,166,0.3)",
+                  color: "#14B8A6",
                   fontFamily: "Montserrat, sans-serif",
-                  boxShadow: "0 0 16px rgba(20,184,166,0.2)",
                 }}
                 data-testid="button-add"
               >
                 <Plus size={14} />
-                Add Patient
+                Add by slug
               </button>
             </div>
           </div>
