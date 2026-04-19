@@ -251,7 +251,10 @@ async function importProducts(products: any[]) {
   return { imported, errors };
 }
 
-export async function POST(request: Request) {
+// Vercel Cron sends GET, but we historically shipped this handler as
+// POST-only. Wire GET → same handler so the scheduled cron stops 405'ing.
+// Manual POST calls (e.g. admin scripts) still work unchanged.
+async function handle(_request: Request) {
   const startTime = Date.now();
   
   try {
@@ -321,3 +324,6 @@ export async function POST(request: Request) {
     );
   }
 }
+
+export async function GET(request: Request) { return handle(request); }
+export async function POST(request: Request) { return handle(request); }

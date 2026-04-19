@@ -9,14 +9,6 @@
       "schedule": "0 1 * * *"
     },
     {
-      "path": "/api/cron/refresh-active-products",
-      "schedule": "0 2 * * *"
-    },
-    {
-      "path": "/api/cron/cleanup-cache",
-      "schedule": "0 3 * * *"
-    },
-    {
       "path": "/api/cron/sync-recalls",
       "schedule": "0 5 * * 1"
     },
