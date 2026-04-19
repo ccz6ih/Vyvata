@@ -12,6 +12,7 @@ import {
   type ProductIngredientRow,
   type CertificationRow,
   type ManufacturerRow,
+  type ComplianceFlagRow,
 } from "@/lib/product-scoring";
 
 const SCORING_VERSION = "v1.0";
@@ -38,7 +39,7 @@ export async function POST(
   }
   const product = productRaw as unknown as ProductRow;
 
-  const [ingredientsRes, certsRes, manufacturerRes] = await Promise.all([
+  const [ingredientsRes, certsRes, manufacturerRes, flagsRes] = await Promise.all([
     supabase
       .from("product_ingredients")
       .select("ingredient_name, dose, unit, form, bioavailability, is_proprietary_blend")
@@ -54,6 +55,15 @@ export async function POST(
           .eq("id", product.manufacturer_id)
           .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
+    supabase
+      .from("compliance_flags")
+      .select("source, severity, issued_date")
+      .is("resolved_at", null)
+      .or(
+        product.manufacturer_id
+          ? `matched_product_id.eq.${id},matched_manufacturer_id.eq.${product.manufacturer_id}`
+          : `matched_product_id.eq.${id}`
+      ),
   ]);
 
   if (ingredientsRes.error) return NextResponse.json({ error: "Ingredients fetch failed" }, { status: 500 });
@@ -62,8 +72,9 @@ export async function POST(
   const ingredients = (ingredientsRes.data ?? []) as unknown as ProductIngredientRow[];
   const certifications = (certsRes.data ?? []) as unknown as CertificationRow[];
   const manufacturer = (manufacturerRes.data ?? null) as unknown as ManufacturerRow | null;
+  const complianceFlags = (flagsRes.data ?? []) as unknown as ComplianceFlagRow[];
 
-  const score = scoreProduct({ product, ingredients, certifications, manufacturer });
+  const score = scoreProduct({ product, ingredients, certifications, manufacturer, complianceFlags });
 
   const { error: insertErr, data: inserted } = await supabase
     .from("product_scores")

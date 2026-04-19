@@ -7,7 +7,7 @@ import {
   Brain, Check, Edit3, Trash2, Save, X,
   BarChart3, ShieldCheck, Zap, Clock, Heart,
   Footprints, Hourglass, User, Pause, Archive,
-  ChevronDown, AlertCircle, Download,
+  ChevronDown, AlertCircle, Download, Package, Award,
   type LucideIcon,
 } from "lucide-react";
 import { VyvataLogo } from "@/components/VyvataLogo";
@@ -53,6 +53,32 @@ interface PatientDetail {
   added_at: string;
   audits: AuditRecord | null;
   quiz_responses: QuizRecord | null;
+}
+
+interface ProductIngredient {
+  ingredient_name: string;
+  dose: string;
+  unit: string;
+  form: string;
+  bioavailability: string;
+}
+
+interface ProductScore {
+  integrity: number;
+  formulation: number;
+  transparency: number;
+  certification: number;
+  tier: string;
+}
+
+interface RecommendedProduct {
+  id: string;
+  brand: string;
+  name: string;
+  category: string;
+  price_usd: number;
+  ingredients: ProductIngredient[];
+  score: ProductScore | null;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -133,6 +159,8 @@ export default function PatientDetailClient({
   const [statusMenuOpen, setStatusMenuOpen] = useState(false);
   const [changingStatus, setChangingStatus] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [recommendedProducts, setRecommendedProducts] = useState<RecommendedProduct[]>([]);
+  const [productsLoading, setProductsLoading] = useState(false);
   const statusMenuRef = useRef<HTMLDivElement>(null);
 
   // Fetch patient details
@@ -183,7 +211,44 @@ export default function PatientDetailClient({
       return () => document.removeEventListener("mousedown", handleClickOutside);
     }
   }, [statusMenuOpen]);
-
+  // Fetch product recommendations based on patient's protocol/goals
+  useEffect(() => {
+    const fetchRecommendations = async () => {
+      if (!patient?.quiz_responses?.assigned_protocol_slug) return;
+      
+      setProductsLoading(true);
+      try {
+        // Map protocol slugs to relevant categories
+        const categoryMap: Record<string, string> = {
+          "deep-sleep-recovery": "magnesium",
+          "cognitive-performance": "omega-3",
+          "athletic-performance": "omega-3",
+          "longevity-foundation": "vitamin-d",
+        };
+        
+        const category = categoryMap[patient.quiz_responses.assigned_protocol_slug];
+        if (!category) return;
+        
+        const params = new URLSearchParams({
+          category,
+          limit: "3",
+          minScore: "60",
+        });
+        
+        const res = await fetch(`/api/practitioner/products/recommendations?${params}`);
+        if (res.ok) {
+          const data = await res.json();
+          setRecommendedProducts(data.recommendations || []);
+        }
+      } catch (err) {
+        console.error("Failed to fetch product recommendations:", err);
+      } finally {
+        setProductsLoading(false);
+      }
+    };
+    
+    if (patient) fetchRecommendations();
+  }, [patient]);
   const saveLabel = async () => {
     if (!patient) return;
     setSaving(true);
@@ -625,6 +690,181 @@ export default function PatientDetailClient({
               >
                 View full protocol report <ExternalLink size={11} />
               </a>
+            )}
+          </div>
+        )}
+
+        {/* ── Product recommendations ── */}
+        {patient?.quiz_responses?.assigned_protocol_slug && (
+          <div
+            className="rounded-xl p-5 space-y-4"
+            style={{ background: "rgba(17,32,64,0.6)", border: "1px solid rgba(201,214,223,0.08)" }}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Package size={16} color="#14B8A6" />
+                <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "#7A90A8" }}>
+                  Recommended Products
+                </p>
+              </div>
+              <a
+                href="/practitioner/products"
+                className="text-xs font-medium"
+                style={{ color: "#14B8A6" }}
+              >
+                View all →
+              </a>
+            </div>
+
+            {productsLoading ? (
+              <div className="text-center py-8">
+                <p className="text-sm" style={{ color: "#4a6080" }}>Loading recommendations...</p>
+              </div>
+            ) : recommendedProducts.length === 0 ? (
+              <div className="text-center py-8">
+                <Package size={32} color="#7A90A8" className="mx-auto mb-2 opacity-50" />
+                <p className="text-sm" style={{ color: "#4a6080" }}>
+                  No products found for this protocol
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-3">
+                {recommendedProducts.map((product) => {
+                  const tierColors: Record<string, string> = {
+                    diamond: "#14B8A6",
+                    gold: "#F59E0B",
+                    silver: "#94A3B8",
+                  };
+                  const tierColor = product.score ? tierColors[product.score.tier] || "#7A90A8" : "#7A90A8";
+                  
+                  return (
+                    <div
+                      key={product.id}
+                      className="rounded-xl p-4 space-y-3"
+                      style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(201,214,223,0.06)" }}
+                    >
+                      {/* Header */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 space-y-1">
+                          <div className="flex items-center gap-2">
+                            <h4
+                              className="text-sm font-bold text-white"
+                              style={{ fontFamily: "Montserrat, sans-serif" }}
+                            >
+                              {product.brand}
+                            </h4>
+                            {product.score && (
+                              <span
+                                className="px-2 py-0.5 rounded text-xs font-bold"
+                                style={{
+                                  background: `${tierColor}15`,
+                                  border: `1px solid ${tierColor}30`,
+                                  color: tierColor,
+                                  fontFamily: "Montserrat, sans-serif",
+                                }}
+                              >
+                                <Award size={10} className="inline mr-1" />
+                                {product.score.tier.toUpperCase()}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs" style={{ color: "#C9D6DF" }}>
+                            {product.name}
+                          </p>
+                          <div className="flex items-center gap-2 text-xs" style={{ color: "#7A90A8" }}>
+                            <span className="px-2 py-0.5 rounded" style={{ background: "rgba(20,184,166,0.08)", color: "#14B8A6" }}>
+                              {product.category}
+                            </span>
+                            {product.price_usd > 0 && (
+                              <>
+                                <span>•</span>
+                                <span>${product.price_usd.toFixed(2)}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* VSF Score */}
+                      {product.score && (
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between text-xs">
+                            <span style={{ color: "#7A90A8" }}>VSF Score</span>
+                            <span
+                              className="font-bold"
+                              style={{
+                                color: scoreColor(product.score.integrity),
+                                fontFamily: "Montserrat, sans-serif",
+                              }}
+                            >
+                              {product.score.integrity}/100
+                            </span>
+                          </div>
+                          <div className="h-1.5 rounded-full" style={{ background: "rgba(201,214,223,0.08)" }}>
+                            <div
+                              className="h-full rounded-full"
+                              style={{
+                                width: `${product.score.integrity}%`,
+                                background: scoreColor(product.score.integrity),
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Key ingredients preview */}
+                      {product.ingredients.length > 0 && (
+                        <div className="space-y-1.5">
+                          <p className="text-xs font-semibold" style={{ color: "#7A90A8" }}>
+                            Key Ingredients ({product.ingredients.length})
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {product.ingredients.slice(0, 3).map((ing, idx) => {
+                              const bioColors: Record<string, string> = {
+                                high: "#34D399",
+                                medium: "#F59E0B",
+                                low: "#F87171",
+                              };
+                              const bioColor = bioColors[ing.bioavailability.toLowerCase()] || "#7A90A8";
+                              
+                              return (
+                                <span
+                                  key={idx}
+                                  className="px-2 py-1 rounded text-xs"
+                                  style={{
+                                    background: `${bioColor}10`,
+                                    color: bioColor,
+                                    fontFamily: "Inter, sans-serif",
+                                  }}
+                                >
+                                  {ing.ingredient_name} • {ing.dose}{ing.unit}
+                                </span>
+                              );
+                            })}
+                            {product.ingredients.length > 3 && (
+                              <span className="px-2 py-1 text-xs" style={{ color: "#7A90A8" }}>
+                                +{product.ingredients.length - 3} more
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Action */}
+                      <button
+                        className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition-all hover:opacity-90"
+                        style={{
+                          background: "#14B8A6",
+                          color: "#FFFFFF",
+                          fontFamily: "Montserrat, sans-serif",
+                        }}
+                      >
+                        Email to Patient
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
         )}

@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Users, BarChart3, BookOpen, Menu, X } from "lucide-react";
+import { Users, BarChart3, BookOpen, Package, Menu, X } from "lucide-react";
 
 const LINKS = [
   { href: "/practitioner/dashboard", label: "Patients",  Icon: Users },
+  { href: "/practitioner/products",  label: "Products",  Icon: Package },
   { href: "/practitioner/analytics", label: "Analytics", Icon: BarChart3 },
   { href: "/practitioner/evidence",  label: "Evidence",  Icon: BookOpen },
 ];

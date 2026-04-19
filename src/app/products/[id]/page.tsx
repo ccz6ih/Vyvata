@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   ArrowLeft, Award, Beaker, CheckCircle2, ShieldCheck, Sparkles,
-  Microscope, Factory, Eye, Leaf, ExternalLink,
+  Microscope, Factory, Eye, Leaf, ExternalLink, AlertTriangle,
 } from "lucide-react";
 import type { Metadata } from "next";
 import { getSupabaseServer } from "@/lib/supabase";
@@ -83,13 +83,24 @@ const CERT_LABELS: Record<string, string> = {
   halal: "Halal",
 };
 
-async function loadProduct(id: string): Promise<ProductData | null> {
+interface ComplianceFlag {
+  id: string;
+  source: string;
+  subject: string;
+  severity: string;
+  issued_date: string | null;
+  raw_data: { more_code_info?: string } | null;
+}
+
+async function loadProduct(
+  id: string
+): Promise<(ProductData & { compliance_flags: ComplianceFlag[] }) | null> {
   const supabase = getSupabaseServer();
   const { data, error } = await supabase
     .from("products")
     .select(`
       id, brand, name, category, product_url, image_url, serving_size,
-      servings_per_container, price_usd, price_per_serving, status,
+      servings_per_container, price_usd, price_per_serving, status, manufacturer_id,
       manufacturer:manufacturers (name, country, website),
       product_ingredients (ingredient_name, dose, unit, form, bioavailability, is_proprietary_blend, daily_value_percentage, display_order),
       certifications (type, verified, verification_url, certificate_number, expiration_date),
@@ -101,9 +112,28 @@ async function loadProduct(id: string): Promise<ProductData | null> {
 
   if (error || !data) return null;
 
-  const raw = data as unknown as ProductData & { product_scores: Array<ScoreRow & { is_current: boolean }> };
+  const raw = data as unknown as ProductData & {
+    manufacturer_id: string | null;
+    product_scores: Array<ScoreRow & { is_current: boolean }>;
+  };
   const current = raw.product_scores?.filter((s) => s.is_current) ?? [];
-  return { ...raw, product_scores: current };
+
+  // Compliance flags matched by product or manufacturer (excludes resolved).
+  const orClauses = raw.manufacturer_id
+    ? `matched_product_id.eq.${id},matched_manufacturer_id.eq.${raw.manufacturer_id}`
+    : `matched_product_id.eq.${id}`;
+  const { data: flagsData } = await supabase
+    .from("compliance_flags")
+    .select("id, source, subject, severity, issued_date, raw_data")
+    .is("resolved_at", null)
+    .or(orClauses)
+    .order("issued_date", { ascending: false, nullsFirst: false });
+
+  return {
+    ...raw,
+    product_scores: current,
+    compliance_flags: (flagsData ?? []) as unknown as ComplianceFlag[],
+  };
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -229,6 +259,59 @@ export default async function ProductPage({ params }: PageProps) {
             )}
           </div>
         </div>
+
+        {/* ── Compliance flags banner ── */}
+        {product.compliance_flags.length > 0 && (
+          <div
+            className="rounded-2xl p-5 space-y-3"
+            style={{
+              background: "rgba(248,113,113,0.08)",
+              border: "1px solid rgba(248,113,113,0.3)",
+            }}
+          >
+            <div className="flex items-center gap-2">
+              <AlertTriangle size={16} style={{ color: "#F87171" }} />
+              <p className="text-sm font-bold" style={{ color: "#FCA5A5", fontFamily: "Montserrat, sans-serif" }}>
+                {product.compliance_flags.length} FDA enforcement {product.compliance_flags.length === 1 ? "action" : "actions"} on record
+              </p>
+            </div>
+            <p className="text-xs" style={{ color: "#C9D6DF" }}>
+              Public-domain enforcement data sourced from official US government
+              APIs. Vyvata surfaces this so practitioners and patients can make
+              informed choices.
+            </p>
+            <div className="space-y-1.5">
+              {product.compliance_flags.slice(0, 5).map((f) => (
+                <div
+                  key={f.id}
+                  className="flex items-start gap-2 text-xs"
+                  style={{ color: "#C9D6DF" }}
+                >
+                  <span
+                    className="shrink-0 mt-0.5 px-1.5 py-0.5 rounded text-[9px] uppercase tracking-widest font-semibold"
+                    style={{
+                      background: "rgba(248,113,113,0.15)",
+                      color: "#F87171",
+                    }}
+                  >
+                    {f.severity}
+                  </span>
+                  <span className="flex-1">
+                    {f.issued_date && (
+                      <span style={{ color: "#7A90A8" }}>{f.issued_date} · </span>
+                    )}
+                    {f.subject}
+                  </span>
+                </div>
+              ))}
+              {product.compliance_flags.length > 5 && (
+                <p className="text-xs pt-1" style={{ color: "#7A90A8" }}>
+                  + {product.compliance_flags.length - 5} more
+                </p>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* ── Dimension scores ── */}
         {score && (

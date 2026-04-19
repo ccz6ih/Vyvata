@@ -33,6 +33,12 @@ export interface ManufacturerRow {
   third_party_tested: boolean;
 }
 
+export interface ComplianceFlagRow {
+  source: "openfda_recall" | "fda_warning_letter" | "caers" | "import_alert";
+  severity: "critical" | "serious" | "moderate" | "minor";
+  issued_date: string | null;
+}
+
 // ── Output shape (mirrors product_scores columns) ────────────────────────────
 
 export type Tier = "rejected" | "standard" | "verified" | "elite";
@@ -44,6 +50,8 @@ export interface EvidenceBreakdown {
 export interface SafetyBreakdown {
   interactions: string[];
   warningCount: number;
+  compliance_penalty: number;
+  compliance_flags: Array<{ source: string; severity: string; issued_date: string | null }>;
 }
 export interface FormulationBreakdown {
   bioavailability: number;
@@ -137,7 +145,10 @@ function scoreEvidence(ingredients: ProductIngredientRow[]): { score: number; br
   };
 }
 
-function scoreSafety(ingredients: ProductIngredientRow[]): { score: number; breakdown: SafetyBreakdown } {
+function scoreSafety(
+  ingredients: ProductIngredientRow[],
+  complianceFlags: ComplianceFlagRow[]
+): { score: number; breakdown: SafetyBreakdown } {
   const interactions: string[] = [];
   // Cross-check each pair against the ingredient-db's declared interactions
   for (let i = 0; i < ingredients.length; i++) {
@@ -151,8 +162,45 @@ function scoreSafety(ingredients: ProductIngredientRow[]): { score: number; brea
       }
     }
   }
-  const score = Math.max(0, 100 - interactions.length * 20);
-  return { score, breakdown: { interactions, warningCount: interactions.length } };
+
+  // Compliance penalty: every unresolved FDA action against this product or
+  // its manufacturer knocks points off the safety dimension. Harder sources
+  // (warning letters, recalls with severe classifications) cost more.
+  const PENALTY_BY_SOURCE: Record<ComplianceFlagRow["source"], number> = {
+    openfda_recall: 15,
+    fda_warning_letter: 25,
+    import_alert: 15,
+    caers: 3,
+  };
+  const SEVERITY_MULTIPLIER: Record<ComplianceFlagRow["severity"], number> = {
+    critical: 1.5,
+    serious: 1.2,
+    moderate: 1.0,
+    minor: 0.6,
+  };
+  let compliancePenalty = 0;
+  for (const f of complianceFlags) {
+    compliancePenalty += (PENALTY_BY_SOURCE[f.source] ?? 0) * (SEVERITY_MULTIPLIER[f.severity] ?? 1);
+  }
+  // Cap the penalty so safety never goes negative from flags alone.
+  compliancePenalty = Math.min(80, Math.round(compliancePenalty));
+
+  const interactionPenalty = interactions.length * 20;
+  const score = Math.max(0, 100 - interactionPenalty - compliancePenalty);
+
+  return {
+    score,
+    breakdown: {
+      interactions,
+      warningCount: interactions.length,
+      compliance_penalty: compliancePenalty,
+      compliance_flags: complianceFlags.map((f) => ({
+        source: f.source,
+        severity: f.severity,
+        issued_date: f.issued_date,
+      })),
+    },
+  };
 }
 
 function scoreFormulation(ingredients: ProductIngredientRow[]): { score: number; breakdown: FormulationBreakdown } {
@@ -264,9 +312,10 @@ export function scoreProduct(input: {
   ingredients: ProductIngredientRow[];
   certifications: CertificationRow[];
   manufacturer: ManufacturerRow | null;
+  complianceFlags?: ComplianceFlagRow[];
 }): ProductScore {
   const evidence = scoreEvidence(input.ingredients);
-  const safety = scoreSafety(input.ingredients);
+  const safety = scoreSafety(input.ingredients, input.complianceFlags ?? []);
   const formulation = scoreFormulation(input.ingredients);
   const manufacturing = scoreManufacturing(input.manufacturer);
   const transparency = scoreTransparency(input.ingredients, input.certifications);

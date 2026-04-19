@@ -4,7 +4,7 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Sparkles, Shield, Zap, BarChart3, Users, ChevronDown, Brain, Moon, Flame, Menu, X } from "lucide-react";
+import { ArrowRight, Sparkles, Shield, Zap, BarChart3, Users, ChevronDown, Brain, Moon, Flame, Menu, X, Package, Award, Database } from "lucide-react";
 import { VyvataLogo } from "@/components/VyvataLogo";
 import AuthNavLink from "@/components/AuthNavLink";
 
@@ -39,9 +39,9 @@ const PROTOCOLS = [
 
 const TRUST_SIGNALS = [
   { icon: Shield, label: "Compliance-first", sub: "Structure/function only. No disease claims." },
-  { icon: Sparkles, label: "AI + Expert rules", sub: "LLM synthesis with deterministic safety layer." },
-  { icon: BarChart3, label: "Evidence-graded", sub: "Every ingredient rated: Strong / Moderate / Weak." },
-  { icon: Users, label: "Practitioner-ready", sub: "Share protocols with your health provider." },
+  { icon: Database, label: "NIH-Sourced Products", sub: "69+ products from DSLD with daily data refresh." },
+  { icon: Award, label: "VSF Integrity Scoring", sub: "Bioavailability + transparency + certifications rated 0-100." },
+  { icon: Users, label: "Practitioner Dashboard", sub: "Patient management with product recommendations built in." },
 ];
 
 export default function LandingPage() {
@@ -82,16 +82,10 @@ export default function LandingPage() {
         </div>
         <div className="hidden md:flex items-center gap-6 text-sm" style={{ color: "#C9D6DF" }}>
           <a href="#how" className="hover:text-white transition-colors">How it works</a>
+          <a href="#products" className="hover:text-white transition-colors">Products</a>
           <a href="#protocols" className="hover:text-white transition-colors">Protocols</a>
-          <a href="/practitioner" className="hover:text-white transition-colors">Practitioners</a>
+          <a href="#practitioners" className="hover:text-white transition-colors">For Practitioners</a>
           <AuthNavLink />
-          <a
-            href="/practitioner"
-            className="hover:text-white transition-colors text-xs px-3 py-1.5 rounded-lg"
-            style={{ background: "rgba(20,184,166,0.08)", border: "1px solid rgba(20,184,166,0.2)", color: "#14B8A6" }}
-          >
-            Practitioner
-          </a>
         </div>
         <button
           onClick={scrollToInput}
@@ -141,11 +135,12 @@ export default function LandingPage() {
             onClick={(e) => e.stopPropagation()}
           >
             {[
-              { href: "#how",          label: "How it works" },
-              { href: "#protocols",    label: "Protocols" },
-              { href: "/practitioner", label: "Practitioners" },
-              { href: "/signin",       label: "Sign in" },
-              { href: "/me",           label: "My protocols" },
+              { href: "#how",           label: "How it works" },
+              { href: "#products",      label: "Products" },
+              { href: "#protocols",     label: "Protocols" },
+              { href: "#practitioners", label: "For Practitioners" },
+              { href: "/signin",        label: "Sign in" },
+              { href: "/me",            label: "My protocols" },
             ].map((item) => (
               <a
                 key={item.href}
@@ -208,7 +203,7 @@ export default function LandingPage() {
               style={{ color: "#C9D6DF", fontFamily: "Inter, sans-serif" }}
             >
               Tell us how you feel and what you're working toward. Vyvata's intelligence engine
-              builds your custom supplement protocol — evidence-graded, goal-aligned, compliance-first.
+              builds your custom supplement protocol with <strong style={{ color: "#14B8A6" }}>real products from our curated database</strong> — evidence-graded, bioavailability-scored, compliance-first.
             </p>
           </div>
 
@@ -285,6 +280,38 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ── STATS BAR ───────────────────────────────────────── */}
+      <section className="px-6 py-12 border-y" style={{ background: "#0E2A50", borderColor: "rgba(20, 184, 166, 0.1)" }}>
+        <div className="max-w-5xl mx-auto">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+            {[
+              { stat: "69+", label: "Curated Products", sub: "From NIH DSLD" },
+              { stat: "300+", label: "Ingredients Analyzed", sub: "Evidence-graded" },
+              { stat: "100%", label: "Compliance-First", sub: "Structure/function only" },
+              { stat: "Daily", label: "Data Refresh", sub: "Always current" },
+            ].map((item) => (
+              <div key={item.label} className="text-center space-y-1">
+                <div
+                  className="text-3xl md:text-4xl font-black"
+                  style={{ color: "#14B8A6", fontFamily: "Montserrat, sans-serif" }}
+                >
+                  {item.stat}
+                </div>
+                <div
+                  className="text-sm font-semibold text-white"
+                  style={{ fontFamily: "Montserrat, sans-serif" }}
+                >
+                  {item.label}
+                </div>
+                <div className="text-xs" style={{ color: "#7A90A8", fontFamily: "Inter, sans-serif" }}>
+                  {item.sub}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ── HOW IT WORKS ────────────────────────────────────── */}
       <section id="how" className="px-6 py-20" style={{ background: "#0E2A50" }}>
         <div className="max-w-5xl mx-auto">
@@ -322,12 +349,12 @@ export default function LandingPage() {
               {
                 step: "03",
                 title: "Intelligence runs",
-                body: "Our AI engine cross-references 300+ ingredients, checks interactions, and grades evidence tiers.",
+                body: "Our AI engine cross-references 300+ ingredients from DSLD, checks interactions, scores bioavailability, and grades evidence tiers.",
               },
               {
                 step: "04",
-                title: "Your protocol",
-                body: "A clean, actionable plan: what to keep, drop, add, and how to time everything.",
+                title: "Real product matches",
+                body: "Get specific product recommendations with VSF scores, certifications, and bioavailability ratings — not just ingredient lists.",
               },
             ].map((item) => (
               <div
@@ -351,6 +378,97 @@ export default function LandingPage() {
                 </p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── PRODUCT INTELLIGENCE ────────────────────────────── */}
+      <section id="products" className="px-6 py-20" style={{ background: "#0B1F3B" }}>
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-14 space-y-3">
+            <p
+              className="text-xs font-semibold tracking-widest"
+              style={{ color: "#14B8A6", fontFamily: "Inter, sans-serif" }}
+            >
+              PRODUCT INTELLIGENCE
+            </p>
+            <h2
+              className="text-3xl md:text-4xl font-bold text-white"
+              style={{ fontFamily: "Montserrat, sans-serif" }}
+            >
+              Real products. Real scores. Real science.
+            </h2>
+            <p className="text-base max-w-2xl mx-auto" style={{ color: "#C9D6DF" }}>
+              We don't just recommend ingredients — we recommend specific products with transparency you can trust.
+              All products sourced from the NIH ODS DSLD database with daily data refresh.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            {[
+              {
+                icon: Database,
+                title: "NIH-Sourced Database",
+                stat: "69+ Products",
+                body: "Curated from the DSLD (Dietary Supplement Label Database) maintained by the National Institutes of Health. Daily cache refresh keeps data current.",
+              },
+              {
+                icon: Award,
+                title: "VSF Integrity Scoring",
+                stat: "0-100 Scale",
+                body: "Every product scored on bioavailability (70%), transparency (20%), and certifications (10%). Diamond/Gold/Silver tiers for instant quality assessment.",
+              },
+              {
+                icon: Package,
+                title: "Bioavailability Rated",
+                stat: "High/Med/Low",
+                body: "Magnesium bisglycinate scores HIGH. Magnesium oxide scores LOW. We auto-detect forms and rate absorption potential for every ingredient.",
+              },
+            ].map((item) => (
+              <div
+                key={item.title}
+                className="glass-card rounded-xl p-6 space-y-4 hover-elevate"
+              >
+                <div className="flex items-center justify-between">
+                  <div
+                    className="w-12 h-12 rounded-lg flex items-center justify-center"
+                    style={{ background: "rgba(20, 184, 166, 0.12)", border: "1px solid rgba(20, 184, 166, 0.2)" }}
+                  >
+                    <item.icon size={20} color="#14B8A6" />
+                  </div>
+                  <div
+                    className="text-2xl font-black"
+                    style={{ color: "rgba(20, 184, 166, 0.4)", fontFamily: "Montserrat, sans-serif" }}
+                  >
+                    {item.stat}
+                  </div>
+                </div>
+                <h3
+                  className="font-bold text-white text-base"
+                  style={{ fontFamily: "Montserrat, sans-serif" }}
+                >
+                  {item.title}
+                </h3>
+                <p className="text-sm leading-relaxed" style={{ color: "#C9D6DF" }}>
+                  {item.body}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-10 text-center">
+            <div
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs border"
+              style={{
+                borderColor: "rgba(20, 184, 166, 0.2)",
+                background: "rgba(20, 184, 166, 0.05)",
+                color: "#14B8A6",
+                fontFamily: "Inter, sans-serif",
+              }}
+            >
+              <Database size={12} />
+              Data Source: NIH Office of Dietary Supplements DSLD · Updated Daily
+            </div>
           </div>
         </div>
       </section>
@@ -474,20 +592,20 @@ export default function LandingPage() {
                 className="text-3xl md:text-4xl font-bold text-white"
                 style={{ fontFamily: "Montserrat, sans-serif" }}
               >
-                The intelligence layer
+                Complete practitioner platform
                 <br />
-                for your practice
+                for supplement protocols
               </h2>
               <p className="text-base leading-relaxed" style={{ color: "#C9D6DF" }}>
                 Health coaches, chiropractors, and functional medicine practitioners use Vyvata
-                to deliver personalized supplement protocols at scale — without the research overhead.
+                to deliver personalized supplement protocols at scale — with patient management and product recommendations built right in.
               </p>
               <ul className="space-y-3">
                 {[
-                  "White-label protocols for your clients",
-                  "Revenue share on supplement conversions",
-                  "Compliant recommendations, always",
-                  "Practitioner escalation routing built in",
+                  "Patient dashboard with protocol tracking",
+                  "Product recommendations with VSF scores",
+                  "69+ curated products from NIH DSLD",
+                  "Evidence-based, compliance-first protocols",
                 ].map((item) => (
                   <li key={item} className="flex items-center gap-3 text-sm" style={{ color: "#C9D6DF" }}>
                     <div
@@ -532,11 +650,11 @@ export default function LandingPage() {
                 SAMPLE PROTOCOL — COGNITIVE PERFORMANCE
               </div>
               {[
-                { name: "Creatine Monohydrate", dose: "5g", timing: "AM", status: "ADD", statusColor: "#14B8A6" },
-                { name: "Lion's Mane Extract", dose: "1000mg", timing: "AM", status: "ADD", statusColor: "#14B8A6" },
-                { name: "L-Theanine", dose: "200mg", timing: "AM", status: "KEEP", statusColor: "#34D399" },
-                { name: "Vitamin D3", dose: "5000 IU", timing: "AM", status: "KEEP", statusColor: "#34D399" },
-                { name: "Generic BCAA", dose: "10g", timing: "—", status: "DROP", statusColor: "#F87171" },
+                { name: "Creatine Monohydrate", dose: "5g", timing: "AM", status: "ADD", statusColor: "#14B8A6", vsf: "92" },
+                { name: "Lion's Mane Extract", dose: "1000mg", timing: "AM", status: "ADD", statusColor: "#14B8A6", vsf: "85" },
+                { name: "L-Theanine", dose: "200mg", timing: "AM", status: "KEEP", statusColor: "#34D399", vsf: "88" },
+                { name: "Vitamin D3", dose: "5000 IU", timing: "AM", status: "KEEP", statusColor: "#34D399", vsf: "90" },
+                { name: "Generic BCAA", dose: "10g", timing: "—", status: "DROP", statusColor: "#F87171", vsf: "42" },
               ].map((item) => (
                 <div
                   key={item.name}
@@ -550,7 +668,10 @@ export default function LandingPage() {
                     >
                       {item.status}
                     </span>
-                    <span className="text-sm text-white">{item.name}</span>
+                    <div className="flex flex-col">
+                      <span className="text-sm text-white">{item.name}</span>
+                      <span className="text-xs" style={{ color: "#7A90A8" }}>VSF Score: {item.vsf}/100</span>
+                    </div>
                   </div>
                   <div className="flex items-center gap-3 text-xs" style={{ color: "#7A90A8" }}>
                     <span>{item.dose}</span>

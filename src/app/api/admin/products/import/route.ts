@@ -20,6 +20,7 @@ import {
   type ProductIngredientRow,
   type CertificationRow,
   type ManufacturerRow,
+  type ComplianceFlagRow,
 } from "@/lib/product-scoring";
 
 const SCORING_VERSION = "v1.0";
@@ -275,12 +276,21 @@ async function rescore(
   if (!productRaw) return null;
   const product = productRaw as unknown as ProductRow;
 
-  const [ingRes, certRes, mfrRes] = await Promise.all([
+  const [ingRes, certRes, mfrRes, flagsRes] = await Promise.all([
     supabase.from("product_ingredients").select("ingredient_name, dose, unit, form, bioavailability, is_proprietary_blend").eq("product_id", productId),
     supabase.from("certifications").select("type, verified").eq("product_id", productId),
     product.manufacturer_id
       ? supabase.from("manufacturers").select("gmp_certified, fda_registered, third_party_tested").eq("id", product.manufacturer_id).maybeSingle()
       : Promise.resolve({ data: null }),
+    supabase
+      .from("compliance_flags")
+      .select("source, severity, issued_date")
+      .is("resolved_at", null)
+      .or(
+        product.manufacturer_id
+          ? `matched_product_id.eq.${productId},matched_manufacturer_id.eq.${product.manufacturer_id}`
+          : `matched_product_id.eq.${productId}`
+      ),
   ]);
 
   const s = scoreProduct({
@@ -288,6 +298,7 @@ async function rescore(
     ingredients: (ingRes.data ?? []) as unknown as ProductIngredientRow[],
     certifications: (certRes.data ?? []) as unknown as CertificationRow[],
     manufacturer: (mfrRes.data ?? null) as unknown as ManufacturerRow | null,
+    complianceFlags: (flagsRes.data ?? []) as unknown as ComplianceFlagRow[],
   });
 
   await supabase.from("product_scores").insert({

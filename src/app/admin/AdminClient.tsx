@@ -6,7 +6,7 @@ import {
   CheckCircle2, XCircle, Clock, ChevronDown, ChevronUp,
   RefreshCw, Users, ClipboardList, ShieldCheck, AlertTriangle,
   ExternalLink, Mail, Building2, Stethoscope, Globe, User, LogOut,
-  BarChart3, Box,
+  BarChart3, Box, AlertTriangle as AlertIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { VyvataLogo } from "@/components/VyvataLogo";
@@ -496,6 +496,14 @@ export default function AdminClient() {
           >
             <Box size={12} />
             Products
+          </Link>
+          <Link
+            href="/admin/compliance"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+            style={{ background: "rgba(20,184,166,0.08)", border: "1px solid rgba(20,184,166,0.2)", color: "#14B8A6" }}
+          >
+            <AlertIcon size={12} />
+            Compliance
           </Link>
           <Link
             href="/admin/analytics"
