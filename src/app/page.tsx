@@ -85,6 +85,7 @@ export default function LandingPage() {
           <a href="#products" className="hover:text-white transition-colors">Products</a>
           <a href="#protocols" className="hover:text-white transition-colors">Protocols</a>
           <a href="#practitioners" className="hover:text-white transition-colors">For Practitioners</a>
+          <a href="/about" className="hover:text-white transition-colors">About</a>
           <AuthNavLink />
         </div>
         <button
@@ -139,6 +140,7 @@ export default function LandingPage() {
               { href: "#products",      label: "Products" },
               { href: "#protocols",     label: "Protocols" },
               { href: "#practitioners", label: "For Practitioners" },
+              { href: "/about",         label: "About" },
               { href: "/signin",        label: "Sign in" },
               { href: "/me",            label: "My protocols" },
             ].map((item) => (
@@ -192,18 +194,16 @@ export default function LandingPage() {
               className="text-4xl md:text-6xl font-black leading-tight text-white"
               style={{ fontFamily: "Montserrat, sans-serif", letterSpacing: "-0.02em" }}
             >
-              Your personalized
+              The integrity score for
               <br />
-              <span className="text-gradient">wellness protocol.</span>
-              <br />
-              Built in 60 seconds.
+              <span className="text-gradient">what you put in your body.</span>
             </h1>
             <p
               className="text-lg max-w-xl mx-auto leading-relaxed"
               style={{ color: "#C9D6DF", fontFamily: "Inter, sans-serif" }}
             >
-              Tell us how you feel and what you're working toward. Vyvata's intelligence engine
-              builds your custom supplement protocol with <strong style={{ color: "#14B8A6" }}>real products from our curated database</strong> — evidence-graded, bioavailability-scored, compliance-first.
+              Evidence-graded. Compliance-checked. Accountable to you — not the brands being scored. 
+              Build your personalized supplement protocol with <strong style={{ color: "#14B8A6" }}>real products from our curated database</strong> in 60 seconds.
             </p>
           </div>
 
@@ -737,8 +737,14 @@ export default function LandingPage() {
             >
               Vyvata
             </span>
-          </div>
-          <p className="text-xs" style={{ color: "#7A90A8", fontFamily: "Inter, sans-serif" }}>
+          </div>          <p className="text-sm max-w-2xl mx-auto" style={{ color: "#C9D6DF", fontFamily: "Inter, sans-serif" }}>
+            The independent integrity score for what you put in your body.
+          </p>
+          <div className="flex items-center justify-center gap-6 text-xs" style={{ color: "#7A90A8" }}>
+            <a href="/about" className="hover:text-white transition-colors">About</a>
+            <a href="#products" className="hover:text-white transition-colors">Products</a>
+            <a href="#practitioners" className="hover:text-white transition-colors">For Practitioners</a>
+          </div>          <p className="text-xs" style={{ color: "#7A90A8", fontFamily: "Inter, sans-serif" }}>
             Structure/function observations only. Not medical advice. Always consult a healthcare provider for medical decisions.
           </p>
           <p className="text-xs" style={{ color: "#7A90A8", fontFamily: "Inter, sans-serif" }}>

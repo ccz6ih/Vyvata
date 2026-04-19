@@ -5,19 +5,19 @@ import { getAppBaseUrl } from "@/lib/urls";
 
 export const metadata: Metadata = {
   metadataBase: new URL(getAppBaseUrl()),
-  title: "Vyvata — Personalized Wellness Protocols, Powered by Intelligence",
+  title: "Vyvata — The Independent Integrity Score for What You Put in Your Body",
   description:
-    "Your AI-powered wellness guide. Answer a few questions, get a personalized supplement protocol and lifestyle plan — built for your goals. Free. Under 60 seconds.",
+    "Evidence-graded. Compliance-checked. Accountable to you, not the brands being scored. Build your personalized supplement protocol in 60 seconds.",
   openGraph: {
-    title: "Vyvata",
-    description: "Personalized wellness protocols, powered by intelligence.",
+    title: "Vyvata — The Integrity Score for Supplements",
+    description: "Independent integrity scores for supplements and wellness products. Evidence-graded. Compliance-checked. Built to be accountable to you.",
     type: "website",
     siteName: "Vyvata",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Vyvata",
-    description: "Your AI-powered wellness protocol. Built for you in 60 seconds.",
+    title: "Vyvata — The Integrity Score for Supplements",
+    description: "Independent integrity scores for supplements and wellness products. Evidence-graded. Compliance-checked. Built to be accountable to you.",
   },
 };
 
