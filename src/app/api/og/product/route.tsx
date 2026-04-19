@@ -32,6 +32,7 @@ interface Row {
     transparency_score: number | null;
     sustainability_score: number | null;
     is_current: boolean;
+    score_mode: "ai_inferred" | "verified";
   }>;
 }
 
@@ -47,14 +48,20 @@ async function loadData(params: URLSearchParams) {
     .from("products")
     .select(`
       brand, name, category, manufacturer_id,
-      product_scores (integrity_score, tier, evidence_score, safety_score, formulation_score, manufacturing_score, transparency_score, sustainability_score, is_current)
+      product_scores (integrity_score, tier, evidence_score, safety_score, formulation_score, manufacturing_score, transparency_score, sustainability_score, is_current, score_mode)
     `)
     .eq("status", "active");
   const finished = slug ? query.eq("slug", slug) : query.eq("id", id!);
   const { data } = await finished.maybeSingle();
   if (!data) return null;
   const row = data as unknown as Row;
-  const score = row.product_scores?.find((s) => s.is_current) ?? null;
+  // After the score_mode migration, is_current can be true on one row per
+  // mode. Prefer verified; fall back to ai_inferred.
+  const currentScores = (row.product_scores ?? []).filter((s) => s.is_current);
+  const score =
+    currentScores.find((s) => s.score_mode === "verified") ??
+    currentScores.find((s) => s.score_mode === "ai_inferred") ??
+    null;
 
   // Active compliance flags (for the red pill)
   const flagQuery = supabase

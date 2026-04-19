@@ -1,8 +1,20 @@
 // Product scoring — produces the VSF integrity score for a single product.
 // Pure functions only; no I/O. Consumers (API route, admin UI) pass in
 // plain DB-shaped data and get back scores + tier + breakdowns to persist.
+//
+// Two-path scoring (see docs/UI-V2-AND-SUBMISSION-PLAN.md §1.3):
+//   scoreProduct(input)     → verified-mode score (backward-compat)
+//   scoreProductDual(input) → { ai_inferred, verified? } — the new entrypoint
+// The math is identical across modes; only per-dimension weights change via
+// modeWeight() from dimension-caps.ts.
 
 import { findIngredient } from "./ingredients-db";
+import {
+  DIMENSION_IDS,
+  modeWeight,
+  type DimensionId,
+  type ScoreMode,
+} from "./scoring/dimension-caps";
 
 // ── DB-shaped inputs ─────────────────────────────────────────────────────────
 
@@ -90,7 +102,9 @@ export interface ProductScore {
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-// VSF dimension weights (sum to 1.0). Matches VSF-ROADMAP.md.
+// Verified-mode weights (sum to 1.0). Same as VSF-ROADMAP.md; kept here for
+// backward compatibility with callers that read this constant directly. Live
+// authority for per-mode weights is src/lib/scoring/dimension-caps.ts.
 const WEIGHTS = {
   evidence:       0.25,
   safety:         0.15,
@@ -307,13 +321,31 @@ function tierFor(score: number): Tier {
 
 // ── Public entrypoint ────────────────────────────────────────────────────────
 
-export function scoreProduct(input: {
+export interface ScoreInputs {
   product: ProductRow;
   ingredients: ProductIngredientRow[];
   certifications: CertificationRow[];
   manufacturer: ManufacturerRow | null;
   complianceFlags?: ComplianceFlagRow[];
-}): ProductScore {
+  /**
+   * Present when an approved brand submission has unlocked verified mode.
+   * Shape is deliberately open-ended for now — Phase 3 will formalize it.
+   * When absent, scoreProductDual() returns `verified: null`.
+   */
+  brandSubmission?: Record<string, unknown>;
+}
+
+export interface DualScoreResult {
+  ai_inferred: ProductScore;
+  verified: ProductScore | null;
+}
+
+/**
+ * Run every dimension scorer once (they're mode-independent), then produce
+ * one ProductScore per mode. Weights differ by mode via modeWeight(); the
+ * cert bonus is public-data-derived and applies identically to both modes.
+ */
+export function scoreProductDual(input: ScoreInputs): DualScoreResult {
   const evidence = scoreEvidence(input.ingredients);
   const safety = scoreSafety(input.ingredients, input.complianceFlags ?? []);
   const formulation = scoreFormulation(input.ingredients);
@@ -321,33 +353,60 @@ export function scoreProduct(input: {
   const transparency = scoreTransparency(input.ingredients, input.certifications);
   const sustainability = 60; // placeholder until we wire sustainability signals
 
-  const weighted =
-    evidence.score * WEIGHTS.evidence +
-    safety.score * WEIGHTS.safety +
-    formulation.score * WEIGHTS.formulation +
-    manufacturing.score * WEIGHTS.manufacturing +
-    transparency.score * WEIGHTS.transparency +
-    sustainability * WEIGHTS.sustainability;
-
-  const bonus = certificationBonus(input.certifications);
-  const integrity = Math.min(100, Math.round(weighted + bonus));
-
-  return {
+  // Raw 0-100 dim scores used by both modes.
+  const dimScores: Record<DimensionId, number> = {
     evidence: evidence.score,
     safety: safety.score,
     formulation: formulation.score,
     manufacturing: manufacturing.score,
     transparency: transparency.score,
     sustainability,
-    integrity,
-    tier: tierFor(integrity),
-    certificationBonus: bonus,
-    breakdowns: {
-      evidence: evidence.breakdown,
-      safety: safety.breakdown,
-      formulation: formulation.breakdown,
-      manufacturing: manufacturing.breakdown,
-      transparency: transparency.breakdown,
-    },
   };
+
+  const bonus = certificationBonus(input.certifications);
+
+  const compose = (mode: ScoreMode): ProductScore => {
+    // Each dim contributes (raw/100) * modeWeight. In verified mode the sum
+    // of mode weights is 100; in ai_inferred mode it equals AI_INFERRED_MAX.
+    const weighted = DIMENSION_IDS.reduce(
+      (sum, id) => sum + (dimScores[id] / 100) * modeWeight(id, mode),
+      0
+    );
+    const integrity = Math.min(100, Math.round(weighted + bonus));
+    return {
+      evidence: evidence.score,
+      safety: safety.score,
+      formulation: formulation.score,
+      manufacturing: manufacturing.score,
+      transparency: transparency.score,
+      sustainability,
+      integrity,
+      tier: tierFor(integrity),
+      certificationBonus: bonus,
+      breakdowns: {
+        evidence: evidence.breakdown,
+        safety: safety.breakdown,
+        formulation: formulation.breakdown,
+        manufacturing: manufacturing.breakdown,
+        transparency: transparency.breakdown,
+      },
+    };
+  };
+
+  return {
+    ai_inferred: compose("ai_inferred"),
+    verified: input.brandSubmission ? compose("verified") : null,
+  };
+}
+
+/**
+ * Backward-compatible entrypoint. Legacy callers expect the full-weight
+ * score (all dims sum to 100), not the AI-inferred cap. Preserves behavior
+ * by unconditionally computing verified mode, independent of whether a
+ * brand submission exists.
+ *
+ * New code should call scoreProductDual() and handle both modes explicitly.
+ */
+export function scoreProduct(input: Omit<ScoreInputs, "brandSubmission">): ProductScore {
+  return scoreProductDual({ ...input, brandSubmission: {} }).verified!;
 }

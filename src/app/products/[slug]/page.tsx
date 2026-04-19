@@ -8,6 +8,9 @@ import type { Metadata } from "next";
 import { getSupabaseServer } from "@/lib/supabase";
 import { VyvataLogo } from "@/components/VyvataLogo";
 import ShareButtons from "@/components/ShareButtons";
+import GapReportBlock from "@/components/GapReportBlock";
+import { calculateGapReport } from "@/lib/scoring/gap-report";
+import type { DimensionId } from "@/lib/scoring/dimension-caps";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -45,6 +48,7 @@ interface ScoreRow {
   sustainability_score: number | null;
   scored_at: string;
   is_current: boolean;
+  score_mode: "ai_inferred" | "verified";
 }
 
 interface ProductData {
@@ -109,7 +113,7 @@ async function loadProduct(
       manufacturer:manufacturers (name, country, website),
       product_ingredients (ingredient_name, dose, unit, form, bioavailability, is_proprietary_blend, daily_value_percentage, display_order),
       certifications (type, verified, verification_url, certificate_number, expiration_date),
-      product_scores (integrity_score, tier, evidence_score, safety_score, formulation_score, manufacturing_score, transparency_score, sustainability_score, scored_at, is_current)
+      product_scores (integrity_score, tier, evidence_score, safety_score, formulation_score, manufacturing_score, transparency_score, sustainability_score, scored_at, is_current, score_mode)
     `)
     .eq(lookupColumn, slugOrId)
     .eq("status", "active")
@@ -122,7 +126,13 @@ async function loadProduct(
     manufacturer_id: string | null;
     product_scores: Array<ScoreRow & { is_current: boolean }>;
   };
-  const current = raw.product_scores?.filter((s) => s.is_current) ?? [];
+  // Prefer verified (brand-submitted) score when present; fall back to
+  // ai_inferred. After the score_mode migration, is_current can legitimately
+  // be true on one row per mode, so we filter client-side.
+  const currentByMode = (raw.product_scores ?? []).filter((s) => s.is_current);
+  const verified = currentByMode.find((s) => s.score_mode === "verified");
+  const aiInferred = currentByMode.find((s) => s.score_mode === "ai_inferred");
+  const current = verified ? [verified] : aiInferred ? [aiInferred] : [];
 
   // Compliance flags matched by product or manufacturer (excludes resolved).
   const orClauses = raw.manufacturer_id
@@ -248,6 +258,16 @@ export default async function ProductPage({ params }: PageProps) {
                 <span className="text-[10px] uppercase tracking-widest mt-1" style={{ color: "#7A90A8" }}>
                   Integrity Score / 100
                 </span>
+                <span
+                  className="text-[9px] font-bold uppercase tracking-widest mt-1 px-2 py-0.5 rounded-full"
+                  style={{
+                    background: score.score_mode === "verified" ? "rgba(20,184,166,0.15)" : "rgba(96,165,250,0.15)",
+                    color: score.score_mode === "verified" ? "#14B8A6" : "#60a5fa",
+                    border: `1px solid ${score.score_mode === "verified" ? "rgba(20,184,166,0.4)" : "rgba(96,165,250,0.4)"}`,
+                  }}
+                >
+                  {score.score_mode === "verified" ? "✓ Verified" : "⚡ AI Inferred"}
+                </span>
               </>
             ) : (
               <>
@@ -352,6 +372,27 @@ export default async function ProductPage({ params }: PageProps) {
             </div>
           </div>
         )}
+
+        {/* ── Gap Report (AI-inferred + upside) ── */}
+        {score && score.score_mode === "ai_inferred" && (() => {
+          const rawSubScores: Record<DimensionId, number> = {
+            evidence: score.evidence_score ?? 0,
+            safety: score.safety_score ?? 0,
+            formulation: score.formulation_score ?? 0,
+            manufacturing: score.manufacturing_score ?? 0,
+            transparency: score.transparency_score ?? 0,
+            sustainability: score.sustainability_score ?? 0,
+          };
+          const report = calculateGapReport(score.integrity_score, rawSubScores);
+          return (
+            <GapReportBlock
+              report={report}
+              brand={product.brand}
+              productName={product.name}
+              slug={product.slug}
+            />
+          );
+        })()}
 
         {/* ── Dimension scores ── */}
         {score && (

@@ -6,13 +6,15 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
-  scoreProduct,
+  scoreProductDual,
   type ProductRow,
   type ProductIngredientRow,
   type CertificationRow,
   type ManufacturerRow,
   type ComplianceFlagRow,
+  type ProductScore,
 } from "@/lib/product-scoring";
+import type { ScoreMode } from "@/lib/scoring/dimension-caps";
 
 const SCORING_VERSION = "v1.0";
 
@@ -78,7 +80,9 @@ export async function rescoreProducts(
 
   for (const product of productList) {
     try {
-      // Pull everything the scorer needs + the current score for comparison.
+      // Pull everything the scorer needs + current scores (per mode) for
+      // comparison. The product_scores.score_mode column gates the lookup so
+      // each mode is compared independently.
       const [ingRes, certRes, mfrRes, flagsRes, currentRes] = await Promise.all([
         supabase
           .from("product_ingredients")
@@ -107,19 +111,31 @@ export async function rescoreProducts(
           ),
         supabase
           .from("product_scores")
-          .select("integrity_score, tier")
+          .select("integrity_score, tier, score_mode")
           .eq("product_id", product.id)
-          .eq("is_current", true)
-          .maybeSingle(),
+          .eq("is_current", true),
       ]);
 
       const ingredients = (ingRes.data ?? []) as unknown as ProductIngredientRow[];
       const certifications = (certRes.data ?? []) as unknown as CertificationRow[];
       const manufacturer = (mfrRes.data ?? null) as unknown as ManufacturerRow | null;
       const complianceFlags = (flagsRes.data ?? []) as unknown as ComplianceFlagRow[];
-      const current = (currentRes.data ?? null) as { integrity_score: number; tier: string } | null;
+      const currentByMode = new Map<ScoreMode, { integrity_score: number; tier: string }>();
+      for (const row of (currentRes.data ?? []) as Array<{
+        integrity_score: number;
+        tier: string;
+        score_mode: ScoreMode;
+      }>) {
+        currentByMode.set(row.score_mode, {
+          integrity_score: row.integrity_score,
+          tier: row.tier,
+        });
+      }
 
-      const score = scoreProduct({
+      // Phase 1 ships the AI-inferred path always. Verified mode will be
+      // activated when an approved brand submission exists (Phase 3). Until
+      // then the rescore writes a single ai_inferred row per product.
+      const dual = scoreProductDual({
         product,
         ingredients,
         certifications,
@@ -127,46 +143,61 @@ export async function rescoreProducts(
         complianceFlags,
       });
 
-      // Only write a new row if the score actually changed. Avoids filling
-      // history with no-op rows on every weekly tick.
-      if (current && current.integrity_score === score.integrity && current.tier === score.tier) {
-        result.skipped += 1;
-        continue;
-      }
+      const writes: Array<{ mode: ScoreMode; score: ProductScore }> = [
+        { mode: "ai_inferred", score: dual.ai_inferred },
+      ];
+      if (dual.verified) writes.push({ mode: "verified", score: dual.verified });
 
-      const { error: insertErr } = await supabase.from("product_scores").insert({
-        product_id: product.id,
-        evidence_score: score.evidence,
-        evidence_breakdown: score.breakdowns.evidence,
-        safety_score: score.safety,
-        safety_breakdown: score.breakdowns.safety,
-        formulation_score: score.formulation,
-        formulation_breakdown: score.breakdowns.formulation,
-        manufacturing_score: score.manufacturing,
-        manufacturing_breakdown: score.breakdowns.manufacturing,
-        transparency_score: score.transparency,
-        transparency_breakdown: score.breakdowns.transparency,
-        sustainability_score: score.sustainability,
-        integrity_score: score.integrity,
-        tier: score.tier,
-        version: SCORING_VERSION,
-        scored_by: "system",
-        rescore_reason: reason,
-        is_current: true,
-      });
-      if (insertErr) throw insertErr;
+      for (const { mode, score } of writes) {
+        const current = currentByMode.get(mode) ?? null;
+        if (
+          current &&
+          current.integrity_score === score.integrity &&
+          current.tier === score.tier
+        ) {
+          result.skipped += 1;
+          continue;
+        }
 
-      result.rescored += 1;
-      if (current && (current.tier !== score.tier)) {
-        result.tierChanges.push({
-          productId: product.id,
-          brand: product.brand,
-          name: product.name,
-          previousTier: current.tier,
-          previousScore: current.integrity_score,
-          newTier: score.tier,
-          newScore: score.integrity,
+        const { error: insertErr } = await supabase.from("product_scores").insert({
+          product_id: product.id,
+          score_mode: mode,
+          evidence_score: score.evidence,
+          evidence_breakdown: score.breakdowns.evidence,
+          safety_score: score.safety,
+          safety_breakdown: score.breakdowns.safety,
+          formulation_score: score.formulation,
+          formulation_breakdown: score.breakdowns.formulation,
+          manufacturing_score: score.manufacturing,
+          manufacturing_breakdown: score.breakdowns.manufacturing,
+          transparency_score: score.transparency,
+          transparency_breakdown: score.breakdowns.transparency,
+          sustainability_score: score.sustainability,
+          integrity_score: score.integrity,
+          tier: score.tier,
+          version: SCORING_VERSION,
+          scored_by: "system",
+          rescore_reason: reason,
+          is_current: true,
         });
+        if (insertErr) throw insertErr;
+
+        result.rescored += 1;
+
+        // Only surface tier changes for ai_inferred — that's the public
+        // surface practitioners react to. Verified-mode changes are driven
+        // by brand submission review and will notify separately.
+        if (mode === "ai_inferred" && current && current.tier !== score.tier) {
+          result.tierChanges.push({
+            productId: product.id,
+            brand: product.brand,
+            name: product.name,
+            previousTier: current.tier,
+            previousScore: current.integrity_score,
+            newTier: score.tier,
+            newScore: score.integrity,
+          });
+        }
       }
     } catch (err) {
       result.errors.push({
