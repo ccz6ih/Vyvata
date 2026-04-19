@@ -54,6 +54,8 @@ export default function AdminProductsClient() {
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [syncingAll, setSyncingAll] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<string | null>(null);
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -166,6 +168,24 @@ export default function AdminProductsClient() {
     }
   };
 
+  const quickImport = async () => {
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const res = await fetch("/api/admin/products/quick-import", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Import failed");
+      setImportResult(
+        `${data.message} · ${data.stats.currentTotal} total products`
+      );
+      await fetchProducts();
+    } catch (e) {
+      setImportResult(e instanceof Error ? e.message : "Import failed");
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const unscoredCount = products.filter((p) => !p.current_score).length;
 
   return (
@@ -195,6 +215,19 @@ export default function AdminProductsClient() {
           </span>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={quickImport}
+            disabled={importing}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
+            style={{
+              background: "rgba(168,85,247,0.12)",
+              border: "1px solid rgba(168,85,247,0.3)",
+              color: "#A855F7",
+            }}
+          >
+            {importing ? <RefreshCw size={12} className="animate-spin" /> : <Box size={12} />}
+            Quick Import (~20 products)
+          </button>
           <button
             onClick={fetchProducts}
             disabled={loading}
@@ -288,6 +321,22 @@ export default function AdminProductsClient() {
           >
             <span>{syncResult}</span>
             <button onClick={() => setSyncResult(null)} style={{ color: "#818CF8" }}>
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        {importResult && (
+          <div
+            className="rounded-xl px-4 py-3 text-sm flex items-center justify-between gap-3"
+            style={{
+              background: "rgba(168,85,247,0.08)",
+              border: "1px solid rgba(168,85,247,0.25)",
+              color: "#E9D5FF",
+            }}
+          >
+            <span>{importResult}</span>
+            <button onClick={() => setImportResult(null)} style={{ color: "#A855F7" }}>
               Dismiss
             </button>
           </div>
