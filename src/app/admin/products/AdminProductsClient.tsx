@@ -57,6 +57,8 @@ export default function AdminProductsClient() {
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<string | null>(null);
   const [cleaning, setCleaning] = useState(false);
+  const [seeding, setSeeding] = useState(false);
+  const [seedResult, setSeedResult] = useState<string | null>(null);
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -206,6 +208,23 @@ export default function AdminProductsClient() {
     }
   };
 
+  const seedCertifications = async () => {
+    setSeeding(true);
+    setSeedResult(null);
+    try {
+      const res = await fetch('/api/admin/manufacturers/seed-certifications', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Seeding failed');
+      setSeedResult(
+        `✓ ${data.message}. Created: ${data.stats.created}, Updated: ${data.stats.updated}, Skipped: ${data.stats.skipped}`
+      );
+    } catch (e) {
+      setSeedResult(e instanceof Error ? e.message : 'Seeding failed');
+    } finally {
+      setSeeding(false);
+    }
+  };
+
   const unscoredCount = products.filter((p) => !p.current_score).length;
 
   return (
@@ -260,6 +279,19 @@ export default function AdminProductsClient() {
           >
             {importing ? <RefreshCw size={12} className="animate-spin" /> : <Box size={12} />}
             Quick Import (~20 products)
+          </button>
+          <button
+            onClick={seedCertifications}
+            disabled={seeding}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
+            style={{
+              background: "rgba(251,191,36,0.12)",
+              border: "1px solid rgba(251,191,36,0.3)",
+              color: "#FBBF24",
+            }}
+          >
+            {seeding ? <RefreshCw size={12} className="animate-spin" /> : <Award size={12} />}
+            Seed Certifications
           </button>
           <button
             onClick={fetchProducts}
@@ -370,6 +402,22 @@ export default function AdminProductsClient() {
           >
             <span>{importResult}</span>
             <button onClick={() => setImportResult(null)} style={{ color: "#A855F7" }}>
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        {seedResult && (
+          <div
+            className="rounded-xl px-4 py-3 text-sm flex items-center justify-between gap-3"
+            style={{
+              background: "rgba(251,191,36,0.08)",
+              border: "1px solid rgba(251,191,36,0.25)",
+              color: "#FDE68A",
+            }}
+          >
+            <span>{seedResult}</span>
+            <button onClick={() => setSeedResult(null)} style={{ color: "#FBBF24" }}>
               Dismiss
             </button>
           </div>
