@@ -104,6 +104,19 @@ export default function AdminProductsClient() {
     await fetchProducts();
   };
 
+  const rescoreAll = async () => {
+    if (products.length === 0) return;
+    if (!confirm(`Rescore all ${products.length} products? Existing scores stay in history; a new current row is inserted per product.`)) return;
+    setScoringAll(true);
+    for (const p of products) {
+      try {
+        await fetch(`/api/admin/products/${p.id}/score`, { method: "POST" });
+      } catch {}
+    }
+    setScoringAll(false);
+    await fetchProducts();
+  };
+
   const syncCerts = async (p: ProductRow) => {
     setSyncingId(p.id);
     setSyncResult(null);
@@ -185,7 +198,7 @@ export default function AdminProductsClient() {
             <button
               onClick={scoreAllUnscored}
               disabled={scoringAll}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
               style={{
                 background: "rgba(20,184,166,0.12)",
                 border: "1px solid rgba(20,184,166,0.3)",
@@ -194,6 +207,21 @@ export default function AdminProductsClient() {
             >
               <Zap size={12} />
               Score all unscored ({unscoredCount})
+            </button>
+          )}
+          {products.length > 0 && (
+            <button
+              onClick={rescoreAll}
+              disabled={scoringAll}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
+              style={{
+                background: "rgba(255,255,255,0.05)",
+                border: "1px solid rgba(201,214,223,0.15)",
+                color: "#C9D6DF",
+              }}
+            >
+              {scoringAll ? <RefreshCw size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+              Rescore all ({products.length})
             </button>
           )}
           <button
