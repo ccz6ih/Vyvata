@@ -19,19 +19,44 @@ const supabase = createClient(
 
 const CONFIG = {
   productsPerBatch: 20, // Small batch to complete quickly (~25-30 seconds)
-  categories: ['magnesium', 'vitamin-d', 'omega-3', 'b-complex', 'probiotic', 'zinc', 'vitamin-c'],
+  maxSearchResults: 100, // Look through more results to find non-duplicates
+  categories: [
+    'magnesium', 'vitamin-d', 'omega-3', 'b-complex', 'probiotic', 'zinc', 'vitamin-c',
+    'curcumin', 'coq10', 'multivitamin', 'collagen', 'ashwagandha', 'iron',
+    'calcium', 'vitamin-k', 'biotin', 'folate', 'vitamin-b12', 'vitamin-e',
+    'selenium', 'chromium', 'rhodiola', 'ginkgo', 'milk-thistle'
+  ],
   searchTerms: {
-    'magnesium': 'magnesium glycinate',
-    'vitamin-d': 'vitamin d3',
-    'omega-3': 'omega-3',
+    'magnesium': 'magnesium',
+    'vitamin-d': 'vitamin d',
+    'omega-3': 'fish oil',
     'b-complex': 'b complex',
     'probiotic': 'probiotic',
     'zinc': 'zinc',
     'vitamin-c': 'vitamin c',
+    'curcumin': 'curcumin',
+    'coq10': 'coq10',
+    'multivitamin': 'multivitamin',
+    'collagen': 'collagen',
+    'ashwagandha': 'ashwagandha',
+    'iron': 'iron',
+    'calcium': 'calcium',
+    'vitamin-k': 'vitamin k2',
+    'biotin': 'biotin',
+    'folate': 'methylfolate',
+    'vitamin-b12': 'vitamin b12',
+    'vitamin-e': 'vitamin e',
+    'selenium': 'selenium',
+    'chromium': 'chromium',
+    'rhodiola': 'rhodiola',
+    'ginkgo': 'ginkgo biloba',
+    'milk-thistle': 'milk thistle'
   },
   preferredBrands: [
     'Thorne', 'Life Extension', 'Pure Encapsulations', 'NOW Foods',
     'Jarrow Formulas', 'Nordic Naturals', 'Doctor\'s Best', 'Garden of Life',
+    'Solgar', 'Nature\'s Way', 'Vital Proteins', 'Ancient Nutrition',
+    'Bluebonnet', 'Designs for Health', 'Integrative Therapeutics'
   ],
   dsldRateLimit: 800, // 0.8s between requests (faster for manual imports)
 };
@@ -131,6 +156,8 @@ export async function POST(request: Request) {
     const searchResult = await searchDSLD(searchTerm);
     const results = searchResult.products || [];
     
+    console.log(`   Found ${results.length} DSLD results`);
+    
     // Sort by preferred brands
     const sorted = results.sort((a, b) => {
       const aPreferred = CONFIG.preferredBrands.includes(a.brandName || '');
@@ -140,28 +167,83 @@ export async function POST(request: Request) {
       return 0;
     });
     
-    // Take top N
-    const limited = sorted.slice(0, CONFIG.productsPerBatch);
+    // Search through MORE results to find non-duplicates
+    const maxToCheck = Math.min(sorted.length, CONFIG.maxSearchResults);
+    let checked = 0;
+    let skippedDuplicates = 0;
     
-    for (const item of limited) {
-      if (item.id) {
-        await new Promise(resolve => setTimeout(resolve, CONFIG.dsldRateLimit));
-        const fullProduct = await getDSLDProductById(item.id.toString());
-        
-        if (fullProduct) {
-          discovered.push(convertToVyvataFormat(fullProduct, randomCategory));
-          console.log(`  ✓ ${fullProduct.brandName} - ${fullProduct.fullName}`);
-        }
+    for (const item of sorted) {
+      checked++;
+      
+      // Stop if we have enough products
+      if (discovered.length >= CONFIG.productsPerBatch) {
+        console.log(`   ✓ Found ${CONFIG.productsPerBatch} new products (checked ${checked}/${maxToCheck})`);
+        break;
       }
+      
+      // Stop if we've checked max results
+      if (checked > maxToCheck) {
+        console.log(`   ⚠️ Checked ${maxToCheck} results, found ${discovered.length} new products`);
+        break;
+      }
+      
+      if (!item.id || !item.brandName || !item.fullName) {
+        continue;
+      }
+      
+      // Check for duplicate BEFORE fetching full product details
+      const { data: existingProduct } = await supabase
+        .from('products')
+        .select('id')
+        .eq('brand', item.brandName)
+        .eq('name', item.fullName)
+        .single();
+      
+      if (existingProduct) {
+        skippedDuplicates++;
+        if (skippedDuplicates % 10 === 0) {
+          console.log(`   ... skipped ${skippedDuplicates} duplicates so far`);
+        }
+        continue; // Skip, already in database
+      }
+      
+      // Not a duplicate - fetch full details
+      await new Promise(resolve => setTimeout(resolve, CONFIG.dsldRateLimit));
+      const fullProduct = await getDSLDProductById(item.id.toString());
+      
+      if (fullProduct && fullProduct.ingredientRows && fullProduct.ingredientRows.length > 0) {
+        discovered.push(convertToVyvataFormat(fullProduct, randomCategory));
+        console.log(`  ✓ ${fullProduct.brandName} - ${fullProduct.fullName} (${fullProduct.ingredientRows.length} ingredients)`);
+      } else {
+        console.log(`  ⚠️ Skipping ${item.brandName} - ${item.fullName} (no ingredients)`);
+      }
+    }
+    
+    if (discovered.length === 0) {
+      console.log(`⚠️ No new products found for "${searchTerm}" - all top ${checked} results are duplicates or invalid`);
+      console.log(`   Try a different category or clean up empty products`);
+      
+      return NextResponse.json({
+        success: true,
+        message: `No new products found for ${randomCategory} (${skippedDuplicates} duplicates)`,
+        stats: {
+          discovered: 0,
+          imported: 0,
+          skipped: skippedDuplicates,
+          category: randomCategory,
+          duration: Date.now() - startTime,
+          currentTotal: (await supabase.from('products').select('*', { count: 'exact', head: true })).count || 0,
+        },
+      });
     }
     
     // Import to database
     let imported = 0;
-    let skipped = 0;
+    let errors = 0;
     
     for (const product of discovered) {
       try {
-        // First, check if product exists
+        // Double-check for duplicates (defensive programming)
         const { data: existingProduct } = await supabase
           .from('products')
           .select('id')
@@ -170,8 +252,8 @@ export async function POST(request: Request) {
           .single();
         
         if (existingProduct) {
-          skipped++;
-          continue; // Skip duplicates
+          console.log(`  ⚠️ Race condition: ${product.brand} - ${product.name} was inserted by another process`);
+          continue;
         }
         
         // Insert new product
@@ -210,12 +292,16 @@ export async function POST(request: Request) {
           
           if (ingError) {
             console.error(`❌ Failed to insert ingredients for ${product.brand} - ${product.name}:`, ingError);
+            errors++;
+          } else {
+            imported++;
           }
+        } else {
+          imported++;
         }
-        
-        imported++;
       } catch (error) {
         console.error(`❌ Error importing ${product.brand} - ${product.name}:`, error);
+        errors++;
       }
     }
     
@@ -226,16 +312,19 @@ export async function POST(request: Request) {
     
     const duration = Date.now() - startTime;
     
-    console.log(`✅ Batch complete: ${imported} imported, ${skipped} skipped, ${(duration/1000).toFixed(1)}s`);
+    console.log(`✅ Batch complete: ${imported} imported, ${skippedDuplicates} duplicates skipped, ${errors} errors, ${(duration/1000).toFixed(1)}s`);
     
     return NextResponse.json({
       success: true,
-      message: `Imported ${imported} products from ${randomCategory}`,
+      message: `Imported ${imported} new ${randomCategory} products`,
       stats: {
         discovered: discovered.length,
         imported,
-        skipped,
+        skipped: skippedDuplicates,
+        errors,
         category: randomCategory,
+        searchTerm,
+        checked,
         duration,
         currentTotal: count || 0,
       },

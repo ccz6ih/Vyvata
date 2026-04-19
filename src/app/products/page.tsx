@@ -1,11 +1,12 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { ArrowRight, Award, Filter, ArrowUpDown } from "lucide-react";
+import { ArrowRight, Award, Filter, ArrowUpDown, DollarSign } from "lucide-react";
 import { getSupabaseServer } from "@/lib/supabase";
 import { VyvataLogo } from "@/components/VyvataLogo";
 import AuthNavLink from "@/components/AuthNavLink";
 import { productUrl } from "@/lib/urls";
 import { TIER_COLOR } from "@/lib/tokens";
+import ProductGrid, { type GridProduct } from "./ProductGrid";
 
 export const metadata: Metadata = {
   title: "Scores · Vyvata",
