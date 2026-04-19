@@ -77,10 +77,11 @@ function convertToVyvataFormat(dsldProduct: DSLDProduct, categoryHint: string) {
   const ingredients = (dsldProduct.ingredientRows || []).map((row: any) => {
     const qty = row.quantity?.[0];
     const form = row.forms?.[0]?.name || 'Standard';
+    const doseValue = qty?.quantity ? parseFloat(qty.quantity) : 0;
     
     return {
       ingredient_name: row.name || 'Unknown',
-      dose: qty?.quantity?.toString() || '0',
+      dose: doseValue,
       unit: qty?.unit || 'mg',
       form,
       bioavailability: inferBioavailability(form),
@@ -160,9 +161,23 @@ export async function POST(request: Request) {
     
     for (const product of discovered) {
       try {
+        // First, check if product exists
+        const { data: existingProduct } = await supabase
+          .from('products')
+          .select('id')
+          .eq('brand', product.brand)
+          .eq('name', product.name)
+          .single();
+        
+        if (existingProduct) {
+          skipped++;
+          continue; // Skip duplicates
+        }
+        
+        // Insert new product
         const { data: productData, error: productError } = await supabase
           .from('products')
-          .upsert({
+          .insert({
             brand: product.brand,
             name: product.name,
             category: product.category,
@@ -170,37 +185,37 @@ export async function POST(request: Request) {
             servings_per_container: product.servings_per_container,
             price_usd: product.price_usd,
             status: product.status,
-          }, {
-            onConflict: 'brand,name',
-            ignoreDuplicates: true
           })
           .select()
           .single();
         
         if (productError) {
-          if (productError.code === '23505') {
-            skipped++;
-            continue;
-          }
           throw productError;
         }
         
+        // Insert ingredients if product was created and has ingredients
         if (productData && product.ingredients.length > 0) {
           const ingredientsToInsert = product.ingredients.map((ing: any) => ({
             product_id: productData.id,
             ingredient_name: ing.ingredient_name,
-            dose: ing.dose,
+            dose: parseFloat(ing.dose) || 0,
             unit: ing.unit,
             form: ing.form,
             bioavailability: ing.bioavailability,
           }));
           
-          await supabase.from('product_ingredients').insert(ingredientsToInsert);
+          const { error: ingError } = await supabase
+            .from('product_ingredients')
+            .insert(ingredientsToInsert);
+          
+          if (ingError) {
+            console.error(`❌ Failed to insert ingredients for ${product.brand} - ${product.name}:`, ingError);
+          }
         }
         
         imported++;
       } catch (error) {
-        console.error(`❌ Error importing:`, error);
+        console.error(`❌ Error importing ${product.brand} - ${product.name}:`, error);
       }
     }
     

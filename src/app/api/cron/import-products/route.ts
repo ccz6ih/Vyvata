@@ -97,10 +97,11 @@ function convertToVyvataFormat(dsldProduct: DSLDProduct, categoryHint: string) {
   const ingredients = (dsldProduct.ingredientRows || []).map((row: any) => {
     const qty = row.quantity?.[0];
     const form = row.forms?.[0]?.name || 'Standard';
+    const doseValue = qty?.quantity ? parseFloat(qty.quantity) : 0;
     
     return {
       ingredient_name: row.name || 'Unknown',
-      dose: qty?.quantity?.toString() || '0',
+      dose: doseValue,
       unit: qty?.unit || 'mg',
       form,
       bioavailability: inferBioavailability(form),
@@ -215,16 +216,28 @@ async function importProducts(products: any[]) {
       
       // Insert ingredients
       if (product.ingredients.length > 0) {
+        // Delete existing ingredients first to avoid duplicates
+        await supabase
+          .from('product_ingredients')
+          .delete()
+          .eq('product_id', productData.id);
+        
         const ingredientsToInsert = product.ingredients.map((ing: any) => ({
           product_id: productData.id,
           ingredient_name: ing.ingredient_name,
-          dose: ing.dose,
+          dose: parseFloat(ing.dose) || 0,
           unit: ing.unit,
           form: ing.form,
           bioavailability: ing.bioavailability,
         }));
         
-        await supabase.from('product_ingredients').insert(ingredientsToInsert);
+        const { error: ingError } = await supabase
+          .from('product_ingredients')
+          .insert(ingredientsToInsert);
+        
+        if (ingError) {
+          console.error(`❌ Failed to insert ingredients for ${product.brand} - ${product.name}:`, ingError);
+        }
       }
       
       imported++;
