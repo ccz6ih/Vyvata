@@ -34,7 +34,6 @@ interface Row {
     transparency_score: number | null;
     sustainability_score: number | null;
     is_current: boolean;
-    score_mode: "ai_inferred" | "verified";
   }>;
 }
 
@@ -50,20 +49,17 @@ async function loadData(params: URLSearchParams) {
     .from("products")
     .select(`
       brand, name, category, manufacturer_id,
-      product_scores (integrity_score, tier, evidence_score, safety_score, formulation_score, manufacturing_score, transparency_score, sustainability_score, is_current, score_mode)
+      product_scores (integrity_score, tier, evidence_score, safety_score, formulation_score, manufacturing_score, transparency_score, sustainability_score, is_current)
     `)
     .eq("status", "active");
   const finished = slug ? query.eq("slug", slug) : query.eq("id", id!);
   const { data } = await finished.maybeSingle();
   if (!data) return null;
   const row = data as unknown as Row;
-  // After the score_mode migration, is_current can be true on one row per
-  // mode. Prefer verified; fall back to ai_inferred.
-  const currentScores = (row.product_scores ?? []).filter((s) => s.is_current);
-  const score =
-    currentScores.find((s) => s.score_mode === "verified") ??
-    currentScores.find((s) => s.score_mode === "ai_inferred") ??
-    null;
+  // OG image only renders a single score. Take whatever is_current row comes
+  // back; post-score_mode migration there can be one per mode, but only
+  // ai_inferred rows exist until the brand portal ships (Phase 3).
+  const score = row.product_scores?.find((s) => s.is_current) ?? null;
 
   // Active compliance flags (for the red pill)
   const flagQuery = supabase
@@ -81,7 +77,50 @@ async function loadData(params: URLSearchParams) {
   return { row, score, flagCount: count ?? 0 };
 }
 
+// Minimal always-renderable fallback. Used when ImageResponse throws (which
+// Vercel's Edge runtime reports as status-200-with-zero-bytes — a shape
+// Facebook/LinkedIn reject as "bad response"). Returning a real PNG keeps
+// social previews intact even when the rich card fails to build.
+function fallbackImage(): Response {
+  return new ImageResponse(
+    (
+      <div
+        style={{
+          width: 1200,
+          height: 630,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "linear-gradient(135deg, #0B1F3B 0%, #0d2545 60%, #0e3040 100%)",
+          fontFamily: "system-ui, sans-serif",
+          color: "#fff",
+        }}
+      >
+        <div style={{ fontSize: 72, fontWeight: 900, letterSpacing: 8, color: "#14B8A6" }}>
+          VYVATA
+        </div>
+        <div style={{ fontSize: 24, color: "#7A90A8", marginTop: 16 }}>
+          Independent supplement scorecards
+        </div>
+      </div>
+    ),
+    { width: 1200, height: 630 }
+  );
+}
+
 export async function GET(req: Request) {
+  try {
+    return await renderCard(req);
+  } catch (err) {
+    // Edge runtime errors otherwise surface as 200 + empty body, which social
+    // scrapers treat as a bad response and reject the share entirely.
+    console.error("[og/product] render failed:", err);
+    return fallbackImage();
+  }
+}
+
+async function renderCard(req: Request): Promise<Response> {
   const url = new URL(req.url);
   const data = await loadData(url.searchParams);
 
@@ -89,14 +128,18 @@ export async function GET(req: Request) {
   const name = data?.row.name ?? "Product Scorecard";
   const category = data?.row.category ?? "supplement";
   const score = data?.score ?? null;
-  const tierColor = score ? TIER_COLOR[score.tier] : "#4a6080";
+  // Supabase returns `numeric` columns as strings in some client-config
+  // permutations; coerce everything here so Satori's layout math never sees
+  // a string or NaN, which is a known cause of silent edge-runtime crashes.
+  const intScore = score ? Math.round(Number(score.integrity_score) || 0) : null;
+  const tierColor = score ? TIER_COLOR[score.tier] ?? "#4a6080" : "#4a6080";
   const dimensions = [
-    { label: "E", name: "Evidence",       v: score?.evidence_score ?? 0 },
-    { label: "S", name: "Safety",         v: score?.safety_score ?? 0 },
-    { label: "F", name: "Formulation",    v: score?.formulation_score ?? 0 },
-    { label: "M", name: "Manufacturing",  v: score?.manufacturing_score ?? 0 },
-    { label: "T", name: "Transparency",   v: score?.transparency_score ?? 0 },
-    { label: "Su", name: "Sustainability", v: score?.sustainability_score ?? 0 },
+    { label: "E", name: "Evidence",       v: Number(score?.evidence_score) || 0 },
+    { label: "S", name: "Safety",         v: Number(score?.safety_score) || 0 },
+    { label: "F", name: "Formulation",    v: Number(score?.formulation_score) || 0 },
+    { label: "M", name: "Manufacturing",  v: Number(score?.manufacturing_score) || 0 },
+    { label: "T", name: "Transparency",   v: Number(score?.transparency_score) || 0 },
+    { label: "Su", name: "Sustainability", v: Number(score?.sustainability_score) || 0 },
   ];
   const hasFlags = (data?.flagCount ?? 0) > 0;
 
@@ -181,7 +224,7 @@ export async function GET(req: Request) {
                     letterSpacing: "-0.04em",
                   }}
                 >
-                  {score.integrity_score}
+                  {intScore}
                 </div>
                 <div style={{ fontSize: 18, color: "#7A90A8", marginTop: 4 }}>
                   /100
