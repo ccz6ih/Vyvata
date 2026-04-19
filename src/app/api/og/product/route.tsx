@@ -1,7 +1,16 @@
 // GET /api/og/product?slug=...
-// Minimal trading-card OG image. Kept intentionally simple after repeated
-// silent Satori crashes in the richer layout — add features back only with
-// verified screenshots of the produced PNG.
+// Trading-card OG image for public product scorecards. 1200×630.
+//
+// Known-fragile rendering path — Satori (the engine behind next/og) has
+// flakiness around specific style combinations and silently produces an
+// empty response on crash (200 OK with Content-Length: 0), which social
+// scrapers reject as "corrupted image." Things confirmed to trigger the
+// silent crash on Vercel Edge + Next 16:
+//   - `background: "#RRGGBBAA"` 8-char hex alpha (use rgba() instead)
+//   - Small pill: solid-hex background + dark text + `borderRadius: 999`
+//     combined — render as plain colored text instead
+// If you add styling here, verify the PNG renders end-to-end, don't trust
+// a passing build. A failed render is 0 bytes and otherwise invisible.
 
 import { ImageResponse } from "next/og";
 import { createClient } from "@supabase/supabase-js";
@@ -63,12 +72,7 @@ export async function GET(req: Request) {
   const brand = (data?.row.brand ?? "Vyvata").slice(0, 40);
   const name = (data?.row.name ?? "Product Scorecard").slice(0, 60);
   const category = (data?.row.category ?? "supplement").slice(0, 20);
-  // DIAGNOSTIC: ?debug=noscore forces the fallback path even when data
-  // exists. Lets us bisect whether the crash is in the score rendering
-  // branch or in the real brand/name strings. Remove once the OG 0-byte
-  // issue is resolved.
-  const debugNoscore = url.searchParams.get("debug") === "noscore";
-  const hasScore = !debugNoscore && !!data?.score;
+  const hasScore = !!data?.score;
   const intScore = hasScore ? Math.round(Number(data!.score!.integrity_score) || 0) : null;
   const tier = hasScore ? data!.score!.tier : null;
   const tierColor = tier ? TIER_COLOR[tier] ?? "#4a6080" : "#4a6080";
@@ -142,6 +146,20 @@ export async function GET(req: Request) {
             <div style={{ fontSize: 16, color: "#7A90A8", marginTop: 8 }}>
               {hasScore ? "/ 100" : "Not yet scored"}
             </div>
+            {tier && (
+              <div
+                style={{
+                  marginTop: 14,
+                  fontSize: 15,
+                  fontWeight: 800,
+                  letterSpacing: 4,
+                  color: tierColor,
+                  textTransform: "uppercase",
+                }}
+              >
+                {tier}
+              </div>
+            )}
           </div>
 
           {/* Identity */}
@@ -176,6 +194,17 @@ export async function GET(req: Request) {
         </div>
       </div>
     ),
-    { width: 1200, height: 630 }
+    {
+      width: 1200,
+      height: 630,
+      headers: {
+        // Edge/CDN caches the image for a day, scraper revalidates every
+        // hour, and stale-while-revalidate keeps social crawlers served
+        // for a week even if Vercel's edge is repopulating. Default Next
+        // cache-control of `max-age=0, must-revalidate` is actively bad
+        // for OG — Facebook/LinkedIn scrapers don't retry on cache misses.
+        "cache-control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800",
+      },
+    }
   );
 }
