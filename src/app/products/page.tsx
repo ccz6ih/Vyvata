@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { ArrowRight, Award, Filter } from "lucide-react";
 import { getSupabaseServer } from "@/lib/supabase";
 import { VyvataLogo } from "@/components/VyvataLogo";
+import { productUrl } from "@/lib/urls";
 
 export const metadata: Metadata = {
   title: "Products · Vyvata",
@@ -176,7 +177,7 @@ export default async function ProductsCataloguePage({
               return (
                 <Link
                   key={p.id}
-                  href={`/products/${p.slug ?? p.id}`}
+                  href={productUrl(p)}
                   className="rounded-xl px-4 py-4 flex items-center gap-4 hover:translate-x-0.5 transition-transform"
                   style={{ background: "rgba(17,32,64,0.6)", border: "1px solid rgba(201,214,223,0.08)" }}
                 >

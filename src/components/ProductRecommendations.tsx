@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Award, ArrowRight, Sparkles } from "lucide-react";
+import { productUrl } from "@/lib/urls";
 
 interface Recommendation {
   id: string;
@@ -81,7 +82,7 @@ export default function ProductRecommendations({
           return (
             <Link
               key={p.id}
-              href={`/products/${p.slug ?? p.id}`}
+              href={productUrl(p)}
               className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:translate-x-0.5 transition-transform"
               style={{ background: "rgba(11,31,59,0.4)" }}
             >

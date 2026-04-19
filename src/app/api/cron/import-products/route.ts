@@ -120,7 +120,7 @@ function convertToVyvataFormat(dsldProduct: DSLDProduct, categoryHint: string) {
     serving_size: servingSize,
     servings_per_container: servingsPerContainer,
     price_usd: 0, // Unknown from DSLD
-    status: 'pending' as const,
+    status: 'active' as const, // Auto-imported products are active by default
     ingredients,
     certifications: [], // Will be enriched later
     dsld_id: dsldProduct.id?.toString(),
