@@ -1,8 +1,8 @@
 import type { MetadataRoute } from "next";
 import { getSupabaseServer } from "@/lib/supabase";
+import { getAppBaseUrl } from "@/lib/urls";
 
-const BASE =
-  process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || "https://vyvata.com";
+const BASE = getAppBaseUrl();
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();

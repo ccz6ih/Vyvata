@@ -34,6 +34,13 @@ interface EnrichResult {
   };
 }
 
+interface EnrichmentSummary {
+  total: number;
+  found: number;
+  notFound: number;
+  totalIngredients: number;
+}
+
 const EXAMPLE_STACKS = {
   basic: [
     { brand: 'Thorne', productName: 'Magnesium Bisglycinate' },
@@ -52,7 +59,7 @@ export default function DSLDDemoPage() {
   const [products, setProducts] = useState<Product[]>(EXAMPLE_STACKS.basic);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<EnrichResult[] | null>(null);
-  const [summary, setSummary] = useState<any>(null);
+  const [summary, setSummary] = useState<EnrichmentSummary | null>(null);
 
   const addProduct = () => {
     setProducts([...products, { brand: '', productName: '', upc: '' }]);

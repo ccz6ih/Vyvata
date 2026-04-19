@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
+import { getAppBaseUrl } from "@/lib/urls";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
+  metadataBase: new URL(getAppBaseUrl()),
   title: "Vyvata — Personalized Wellness Protocols, Powered by Intelligence",
   description:
     "Your AI-powered wellness guide. Answer a few questions, get a personalized supplement protocol and lifestyle plan — built for your goals. Free. Under 60 seconds.",

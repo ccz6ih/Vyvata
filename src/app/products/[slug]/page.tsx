@@ -21,6 +21,7 @@ import {
   type DimensionId,
 } from "@/lib/scoring/dimension-caps";
 import { TIER_COLOR, type Tier } from "@/lib/tokens";
+import { getAppBaseUrl } from "@/lib/urls";
 import { EVIDENCE_SUMMARIES, type EvidenceSummary } from "@/lib/evidence-summaries";
 
 interface PageProps {
@@ -256,7 +257,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!product) return { title: "Product not found · Vyvata" };
   const score = pickActiveScore(product.currentScores, undefined);
 
-  const base = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const base = getAppBaseUrl();
   const canonicalUrl = `${base}/products/${product.slug}`;
   const ogUrl = `${base}/api/og/product?slug=${encodeURIComponent(product.slug)}`;
 
