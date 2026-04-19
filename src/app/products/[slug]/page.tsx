@@ -11,6 +11,7 @@ import ShareButtons from "@/components/ShareButtons";
 import GapReportBlock from "@/components/GapReportBlock";
 import { calculateGapReport } from "@/lib/scoring/gap-report";
 import type { DimensionId } from "@/lib/scoring/dimension-caps";
+import { TIER_COLOR } from "@/lib/tokens";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -68,13 +69,6 @@ interface ProductData {
   certifications: CertRow[];
   product_scores: ScoreRow[];
 }
-
-const TIER_COLOR: Record<string, string> = {
-  elite: "#34D399",
-  verified: "#14B8A6",
-  standard: "#F59E0B",
-  rejected: "#F87171",
-};
 
 const CERT_LABELS: Record<string, string> = {
   nsf_sport: "NSF Certified for Sport",

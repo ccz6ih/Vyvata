@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Award, ArrowRight, Sparkles } from "lucide-react";
 import { productUrl } from "@/lib/urls";
+import { TIER_COLOR as SHARED_TIER_COLOR } from "@/lib/tokens";
 
 interface Recommendation {
   id: string;
@@ -24,12 +25,7 @@ interface Recommendation {
   tier: "elite" | "verified" | "standard" | "rejected" | null;
 }
 
-const TIER_COLOR: Record<string, string> = {
-  elite: "#34D399",
-  verified: "#14B8A6",
-  standard: "#F59E0B",
-  rejected: "#F87171",
-};
+const TIER_COLOR: Record<string, string> = SHARED_TIER_COLOR;
 
 export default function ProductRecommendations({
   ingredient,

@@ -10,8 +10,10 @@ import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "edge";
 
+// Match src/lib/tokens.ts — can't import in Edge runtime without bundling
+// cost, so duplicate the tier palette here and keep in sync by hand.
 const TIER_COLOR: Record<string, string> = {
-  elite: "#34D399",
+  elite: "#a78bfa",
   verified: "#14B8A6",
   standard: "#F59E0B",
   rejected: "#F87171",

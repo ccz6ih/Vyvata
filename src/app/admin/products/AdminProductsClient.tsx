@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Award, Box, RefreshCw, Sparkles, Zap } from "lucide-react";
 import { VyvataLogo } from "@/components/VyvataLogo";
+import { TIER_COLOR as SHARED_TIER_COLOR } from "@/lib/tokens";
 
 interface ScoreRow {
   id: string;
@@ -34,12 +35,7 @@ interface ProductRow {
   current_score: ScoreRow | null;
 }
 
-const TIER_COLOR: Record<string, string> = {
-  elite: "#34D399",
-  verified: "#14B8A6",
-  standard: "#F59E0B",
-  rejected: "#F87171",
-};
+const TIER_COLOR: Record<string, string> = SHARED_TIER_COLOR;
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {

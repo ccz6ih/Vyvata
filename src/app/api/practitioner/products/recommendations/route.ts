@@ -45,10 +45,9 @@ export async function GET(request: NextRequest) {
           verified
         ),
         product_scores (
-          integrity,
+          integrity_score,
           formulation_score,
           transparency_score,
-          certification_score,
           tier,
           is_current
         )
@@ -101,10 +100,9 @@ export async function GET(request: NextRequest) {
           certifications: product.certifications || [],
           
           score: currentScore ? {
-            integrity: currentScore.integrity,
+            integrity: currentScore.integrity_score,
             formulation: currentScore.formulation_score,
             transparency: currentScore.transparency_score,
-            certification: currentScore.certification_score,
             tier: currentScore.tier,
           } : null,
         };

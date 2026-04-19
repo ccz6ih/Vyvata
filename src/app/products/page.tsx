@@ -4,6 +4,7 @@ import { ArrowRight, Award, Filter } from "lucide-react";
 import { getSupabaseServer } from "@/lib/supabase";
 import { VyvataLogo } from "@/components/VyvataLogo";
 import { productUrl } from "@/lib/urls";
+import { TIER_COLOR } from "@/lib/tokens";
 
 export const metadata: Metadata = {
   title: "Products · Vyvata",
@@ -27,13 +28,6 @@ interface Row {
     is_current: boolean;
   }>;
 }
-
-const TIER_COLOR: Record<Tier, string> = {
-  elite: "#34D399",
-  verified: "#14B8A6",
-  standard: "#F59E0B",
-  rejected: "#F87171",
-};
 
 const ORDER: Tier[] = ["elite", "verified", "standard", "rejected"];
 
