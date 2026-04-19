@@ -983,3 +983,58 @@ Running `rescoreProducts({ sinceHours: 48, staleDays: 9999 })` twice in a row sh
 ---
 
 *Last updated: 2026-04-19*
+
+---
+
+## Completion log — 2026-04-18
+
+All five gaps closed. Deliverables shipped across commits `a65b3cd`, `950fc1f`, `d8df7c5`, and the follow-up on this date.
+
+### What was built
+
+**Gap 1 — automated compliance sync**
+- `src/app/api/cron/sync-recalls/route.ts`, `sync-caers/`, `sync-warning-letters/`, `sync-certifications/` — per-source crons so a flaky source can't take down the whole pipeline
+- `src/app/api/cron/_shared.ts` — shared auth helper (`authorizeCronRequest`) accepting either `Authorization: Bearer $CRON_SECRET` or an admin cookie
+- `vercel.json` — Monday staggered schedule: certs 04:00 → recalls 05:00 → caers 05:10 → warning letters 05:20 → rescore 05:30 (all UTC). Cert sync runs first so rescore sees fresh data
+- `/api/admin/compliance/sync` still exists for manual "run everything now" triggers; it also includes warning letters
+
+**Gap 2 — close the compliance → score loop**
+- `src/lib/scoring/rescore-job.ts` — pure orchestrator. Iterates active products (N=70, JS loop is fine; the `products_needing_rescore` RPC from the plan was skipped as premature for this scale). Returns `RescoreResult` with `tierChanges[]`
+- `src/app/api/cron/rescore-products/route.ts` — weekly cron wrapper
+- `src/lib/scoring/notify-tier-changes.ts` — `notifyPractitionersOfTierChanges()` scans `patient_links` for raw_input hits on downgraded products' brand/name, groups by practitioner, sends one branded Resend email per
+- `/api/admin/products/[id]/score` refactored to delegate to `rescoreProducts({ productIds: [id], reason: "manual" })` — admin button now skips no-op writes and triggers emails on tier drops, same as the cron
+
+**Gap 3 — slug-based scorecard URLs**
+- `supabase/migrations/20260418_products_slug.sql` — `slug` TEXT UNIQUE NOT NULL, `slugify()` SQL function, one-time backfill with collision suffix, insert trigger. All 69 products backfilled
+- `src/app/products/[id]/page.tsx` renamed to `src/app/products/[slug]/page.tsx`; UUID requests hit `permanentRedirect()` to the canonical slug URL
+- `src/lib/urls.ts` — `productUrl(product)` helper for internal links; `productUrlAbsolute(product, base?)` for OG/emails
+- All call sites migrated: `src/app/products/page.tsx`, `src/components/ProductRecommendations.tsx`, `src/app/admin/compliance/AdminComplianceClient.tsx` (with the flags endpoint now selecting `slug`)
+- `src/app/sitemap.ts` — every active product's slug URL
+
+**Gap 4 — product OG image**
+- `src/app/api/og/product/route.tsx` — Edge-runtime trading card. 1200×630, dark Vyvata gradient, left tier seal with score + /100, right brand + name + 6 vertical dimension bars, footer red compliance pill when flags exist
+- Scorecard `generateMetadata` emits absolute openGraph/twitter image URLs (not relative — LinkedIn's scraper ignores `metadataBase`) and an `alternates.canonical` pointing at the slug URL
+
+**Gap 5 — share buttons**
+- `src/components/ShareButtons.tsx` — Twitter / LinkedIn / Copy Link pills. Lucide v1.8 removed brand icons; used `Share2` + text label as the pragmatic fallback
+- Rendered below the scorecard hero on [slug] page
+
+### Verification scripts
+
+`scripts/test-og-smoke.ts` — GET the product OG route and assert it returns a >10KB PNG. Picks a live slug from Supabase if none supplied.
+`scripts/test-rescore-idempotency.ts` — runs `rescoreProducts()` twice; second run must write zero new rows.
+`scripts/test-warning-letters-selector.ts` — fetches the FDA DataTables endpoint and asserts ≥5 rows with company+letterUrl populated. Catches column-order drift before it silently kills ingestion.
+
+Run with `npx tsx scripts/test-<name>.ts`.
+
+### Deliberate deviations from the plan
+
+- **Skipped the `products_needing_rescore` RPC.** At 70 products a full iteration in JS is ~5 seconds; adding a Postgres RPC is speculative optimization. Revisit at 500+ products.
+- **Scripts instead of a test runner.** No vitest/jest is installed. Adding one to run three scripts wasn't a trade-off worth making; `npx tsx scripts/test-*.ts` runs the same assertions ad-hoc.
+- **Added CAERS as a separate cron** beyond what the plan listed — the Close-the-Loop doc predates the CAERS ingester. Recalls, CAERS, and warning letters each have their own endpoint.
+- **Lucide v1.8 dropped brand icons.** Twitter/LinkedIn icons used in the plan's share component don't exist in this lucide version. `Share2` + "Tweet" / "LinkedIn" text labels substitute.
+
+### Still not done (explicitly out of scope for this pass)
+
+- Smoke-test walkthrough from the plan's "Manual smoke test" section — requires manually inserting a critical flag and watching the tier drop. Not automated; do it once by hand before relying on the pipeline
+- Structured JSON logging on every cron handler (plan's §1.3) — current handlers return JSON but don't emit the standardized `{event, ok, duration_ms, ...}` log line. Low priority until we need Vercel log search

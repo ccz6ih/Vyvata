@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
       matched_manufacturer_id, matched_product_id, match_confidence, match_notes,
       resolved_at, resolved_by, resolved_reason, created_at,
       manufacturer:manufacturers!matched_manufacturer_id (id, name),
-      product:products!matched_product_id (id, brand, name)
+      product:products!matched_product_id (id, slug, brand, name)
     `)
     .order("issued_date", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false });

@@ -7,6 +7,7 @@ import {
   ExternalLink, Trash2, Link as LinkIcon, X, Search,
 } from "lucide-react";
 import { VyvataLogo } from "@/components/VyvataLogo";
+import { productUrl } from "@/lib/urls";
 
 interface FlagRow {
   id: string;
@@ -20,7 +21,10 @@ interface FlagRow {
   match_notes: string | null;
   resolved_at: string | null;
   manufacturer: { id: string; name: string } | { id: string; name: string }[] | null;
-  product: { id: string; brand: string; name: string } | { id: string; brand: string; name: string }[] | null;
+  product:
+    | { id: string; slug: string | null; brand: string; name: string }
+    | { id: string; slug: string | null; brand: string; name: string }[]
+    | null;
 }
 
 interface Counts {
@@ -258,7 +262,7 @@ export default function AdminComplianceClient() {
                         )}
                         {prod && (
                           <Link
-                            href={`/products/${prod.id}`}
+                            href={productUrl(prod)}
                             style={{ color: "#14B8A6" }}
                             className="underline-offset-2 hover:underline"
                           >
