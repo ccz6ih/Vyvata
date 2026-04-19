@@ -947,3 +947,106 @@ That's the loop.
 ---
 
 *Last updated: 2026-04-20*
+
+---
+
+## Completion log — Phases 1 & 2 (2026-04-18/19)
+
+Phases 1 and 2 of this plan are complete. Phase 3 (brand submission portal)
+is the remaining chunk and is explicitly its own multi-session project.
+
+### Phase 1 — Two-path scoring + gap report (commits `e08dd27`, subsequent)
+
+- `supabase/migrations/20260420_score_mode.sql` — adds `score_mode` column,
+  replaces the `(product_id, is_current)` uniqueness index with one scoped
+  by `(product_id, score_mode)` so both modes can coexist on the same
+  product, and re-scopes `ensure_single_current_score` trigger to match
+- `src/lib/scoring/dimension-caps.ts` — per-dimension publicMax vs weight
+  calibration. AI_INFERRED_MAX = 79 (honest public-data ceiling),
+  VERIFIED_MAX = 100 (full weight, unlocked by brand submission)
+- `src/lib/product-scoring.ts` — `scoreProductDual()` returns both modes;
+  legacy `scoreProduct()` preserved as backward-compat wrapper returning
+  verified-mode (matches prior behavior exactly)
+- `src/lib/scoring/gap-report.ts` — pure `calculateGapReport()` returning
+  per-dim upside + top 3 opportunities by point gain
+- `src/lib/scoring/rescore-job.ts` — writes both modes when a brand
+  submission is present; only ai_inferred otherwise
+- `src/components/GapReportBlock.tsx` — CTA block on the scorecard when
+  score_mode is ai_inferred and upside ≥ 1 point. Links to a `mailto:`
+  submission — real portal lands in Phase 3
+- Score mode pill in the hero (⚡ AI Inferred / ✓ Verified)
+
+**Deliberate deviation:** skipped `scoreProductVerified()` helper from the
+plan — YAGNI since the legacy `scoreProduct()` already behaves as the full-
+weight scorer.
+
+### Phase 2 — Scorecard UI V2 (commits `03dc182`, `8e4dc2a`, subsequent)
+
+- `src/lib/tokens.ts` — shared design tokens. Elite tier elevated to purple
+  (`#a78bfa`); verified/standard/rejected unchanged. Migrated all five
+  surfaces (/products, scorecard, ProductRecommendations, AdminProducts,
+  OG image) to the shared TIER_COLOR map
+- `src/components/scorecard/ScoreRing.tsx` — animated SVG ring with
+  count-up number, tier color, mode pill
+- `src/components/scorecard/ScoreHistoryTimeline.tsx` — horizontal timeline
+  of last 5 `product_scores` rows for the active mode with "+N pts since X"
+  delta label
+- `src/components/scorecard/RelatedProducts.tsx` — same-category top 3,
+  preferring verified-mode scores over ai_inferred
+- `src/components/scorecard/ScoreModeToggle.tsx` — URL-driven mode toggle
+  (`?mode=ai`) that shows only when both modes exist
+- `src/components/scorecard/ScorecardTabs.tsx` — client tab shell; four
+  server-rendered panels passed as children (Overview / Evidence /
+  Formulation / Data Sources)
+- `src/app/products/[slug]/page.tsx` restructured: hero grid with identity
+  + ring, score history, compliance flags banner, tabs, gap report, related
+  products, share. Evidence tab pulls from `EVIDENCE_SUMMARIES` matched
+  against each product's ingredient names
+
+**Deliberate deviations:**
+
+- Inlined the four tab-panel functions (`OverviewPanel`, `EvidencePanel`,
+  `FormulationPanel`, `DataSourcesPanel`) in `[slug]/page.tsx` instead of
+  13 separate component files per the plan's 3.2 decomposition. Kept the
+  page under ~500 lines while preserving the same information architecture
+- Kept the compliance-flags banner outside the tabs — unresolved FDA
+  enforcement needs the urgency of top-level placement, not a "oh look in
+  the Safety tab" moment
+
+### OG image + share pipeline — collateral work
+
+The Facebook share pipeline broke twice during Phase 2 rollout and the
+debug loop was painful enough to warrant its own log here.
+
+**Bug 1 — localhost URL in og:image.** `NEXT_PUBLIC_APP_URL` wasn't set in
+prod Vercel; my metadata fell back to `http://localhost:3000`; Facebook
+reported "Bad Response Code" because it was fetching localhost. Fixed by
+a 4-step fallback chain in `src/lib/urls.ts` (`getAppBaseUrl()`):
+NEXT_PUBLIC_APP_URL → VERCEL_PROJECT_PRODUCTION_URL → VERCEL_URL →
+`https://vyvata.com`. Never localhost.
+
+**Bug 2 — silent Satori render crash on scored products.** Satori (the
+engine behind `next/og`) returned 200 OK + `Content-Length: 0` on a
+specific style combo in the tier pill: solid-hex background + dark text +
+`borderRadius: 999` + small padding + small font, all at once. Bisected
+with a `?debug=noscore` query flag that forced the fallback branch.
+Replaced the pill with plain tier-colored text; crash gone.
+
+**Bug 3 — protocol OG route (`/api/og`) hit a different Satori trigger.**
+A `<div>` with mixed text and a `<span>` child without `display: flex`
+crashed the same way. Refactored to flex-with-two-child-divs.
+
+**Lessons encoded in the codebase:**
+
+- `scripts/test-og-smoke.ts` — smoke test with one probe per tier
+  (elite/verified/standard/rejected) plus fallback and protocol OG
+  probes. `npm run smoke:og` runs it. Each probe asserts HTTP 200,
+  `image/*` content-type, PNG magic bytes, and size ≥ 10KB. Would have
+  caught all three bugs in 5 seconds
+- `src/app/api/og/product/route.tsx` has a doc comment block at the top
+  listing the two confirmed Satori crash triggers so future edits don't
+  silently re-trip them
+- Cache headers on both OG routes:
+  `max-age=3600, s-maxage=86400, stale-while-revalidate=604800`. Facebook
+  and LinkedIn scrapers don't retry on misses, so default Next
+  `max-age=0, must-revalidate` is actively bad for OG endpoints
