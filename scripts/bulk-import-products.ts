@@ -62,10 +62,14 @@ const CATEGORIES = [
 ];
 
 const PREFERRED_BRANDS = [
-  'Thorne', 'Life Extension', 'Pure Encapsulations', 'NOW Foods',
-  'Jarrow Formulas', 'Nordic Naturals', 'Doctor\'s Best', 'Garden of Life',
-  'Solgar', 'Nature\'s Way', 'Vital Proteins', 'Ancient Nutrition',
-  'Bluebonnet', 'Designs for Health', 'Integrative Therapeutics'
+  // Brands with proven DSLD ingredient data (based on successful imports)
+  'Vitamin World', 'Solgar', "Barlean's Seriously Delicious", 'Finest Nutrition',
+  "Puritan's Pride", 'Pure Encapsulations', 'Thorne', 'Sundown Naturals',
+  "Doctor's Best", "Nature's Way", 'Gaspari Nutrition', 'InnovixLabs',
+  'Carlson', 'Hero Nutritionals Yummi Bears', "Nature's Bounty",
+  'The Vitamin Shoppe', 'Nordic Naturals', 'Klaire Labs', 'Jarrow Formulas',
+  'NOW Foods', 'Kirkland Signature', 'Spring Valley', 'GNC', 'Nutricost',
+  'Nature\'s Blend', 'Nutrabio', 'BulkSupplements.com'
 ];
 
 type Bioavailability = 'HIGH' | 'MEDIUM' | 'LOW';
@@ -113,6 +117,8 @@ async function importCategoryBatch(
   
   const maxToCheck = Math.min(sorted.length, 200);
   
+  console.log(`   Checking up to ${maxToCheck} products, need ${batchSize} with ingredients...`);
+  
   for (let i = 0; i < maxToCheck && imported < batchSize; i++) {
     const item = sorted[i];
     
@@ -130,14 +136,17 @@ async function importCategoryBatch(
     
     if (existing) {
       skipped++;
-      if (skipped % 20 === 0) {
-        console.log(`   ... skipped ${skipped} duplicates`);
+      if (skipped % 10 === 0) {
+        console.log(`   ... checked ${i+1}, skipped ${skipped} duplicates, imported ${imported}`);
       }
       continue;
     }
     
     // Fetch full details
-    await new Promise(resolve => setTimeout(resolve, 800)); // Rate limit
+    if ((i + 1) % 5 === 0) {
+      console.log(`   ... checked ${i+1}/${maxToCheck}, imported ${imported}/${batchSize}, skipped ${skipped}`);
+    }
+    await new Promise(resolve => setTimeout(resolve, 2100)); // Rate limit: 30 req/60s = 2s each
     const fullProduct = await getDSLDProductById(item.id.toString());
     
     if (!fullProduct || !fullProduct.ingredientRows || fullProduct.ingredientRows.length === 0) {

@@ -1,0 +1,26 @@
+{
+  "startUrls": [
+    { "url": "https://www.vitacost.com/fish-oil" },
+    { "url": "https://www.vitacost.com/omega-3" },
+    { "url": "https://www.vitacost.com/vitamin-d" },
+    { "url": "https://www.vitacost.com/magnesium" },
+    { "url": "https://www.vitacost.com/probiotics" },
+    { "url": "https://www.vitacost.com/multivitamins" },
+    { "url": "https://www.vitacost.com/vitamin-c" },
+    { "url": "https://www.vitacost.com/b-complex" },
+    { "url": "https://www.vitacost.com/coq10" },
+    { "url": "https://www.vitacost.com/turmeric-curcumin" },
+    { "url": "https://www.vitacost.com/zinc" },
+    { "url": "https://www.vitacost.com/vitamin-b12" },
+    { "url": "https://www.vitacost.com/iron" },
+    { "url": "https://www.vitacost.com/calcium" },
+    { "url": "https://www.vitacost.com/collagen" },
+    { "url": "https://www.vitacost.com/ashwagandha" },
+    { "url": "https://www.vitacost.com/biotin" },
+    { "url": "https://www.vitacost.com/vitamin-e" },
+    { "url": "https://www.vitacost.com/selenium" },
+    { "url": "https://www.vitacost.com/vitamin-k" }
+  ],
+  "maxConcurrency": 5,
+  "maxRequestsPerCrawl": 1000
+}
