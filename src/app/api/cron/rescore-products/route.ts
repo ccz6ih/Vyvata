@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase";
 import { rescoreProducts } from "@/lib/scoring/rescore-job";
+import { notifyPractitionersOfTierChanges } from "@/lib/scoring/notify-tier-changes";
 import { hasAdminSession } from "@/lib/admin-auth";
 
 export const maxDuration = 120;
@@ -26,9 +27,17 @@ async function handle(req: NextRequest) {
   const supabase = getSupabaseServer();
   const result = await rescoreProducts(supabase, { reason: "cron" });
 
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
+  const notifications = await notifyPractitionersOfTierChanges(
+    supabase,
+    result.tierChanges,
+    { appUrl }
+  );
+
   return NextResponse.json({
     ok: result.errors.length === 0,
     ...result,
+    notifications,
   });
 }
 

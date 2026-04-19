@@ -8,6 +8,7 @@ import { getSupabaseServer } from "@/lib/supabase";
 import { hasAdminSession } from "@/lib/admin-auth";
 import { ingestOpenFdaRecalls } from "@/lib/compliance/openfda-recalls";
 import { ingestCaersEvents } from "@/lib/compliance/openfda-caers";
+import { ingestFdaWarningLetters } from "@/lib/compliance/fda-warning-letters";
 
 // openFDA calls can take a moment to return when the federal API is slow.
 export const maxDuration = 120;
@@ -27,14 +28,15 @@ export async function POST(req: NextRequest) {
 
   const supabase = getSupabaseServer();
 
-  const [recalls, caers] = await Promise.all([
+  const [recalls, caers, warningLetters] = await Promise.all([
     ingestOpenFdaRecalls(supabase, { daysBack: 730 }),
     ingestCaersEvents(supabase, { daysBack: 730, minCount: 3 }),
+    ingestFdaWarningLetters(supabase, { fulltext: "dietary supplement", length: 250 }),
   ]);
 
-  const totalInserted = recalls.inserted + caers.inserted;
-  const totalUpdated  = recalls.updated  + caers.updated;
-  const totalErrors   = recalls.errors.length + caers.errors.length;
+  const totalInserted = recalls.inserted + caers.inserted + warningLetters.inserted;
+  const totalUpdated  = recalls.updated  + caers.updated  + warningLetters.updated;
+  const totalErrors   = recalls.errors.length + caers.errors.length + warningLetters.errors.length;
 
   return NextResponse.json({
     ok: totalErrors === 0,
@@ -42,6 +44,7 @@ export async function POST(req: NextRequest) {
     sources: {
       openfda_recall: recalls,
       caers,
+      fda_warning_letter: warningLetters,
     },
     ranAt: new Date().toISOString(),
   });

@@ -17,8 +17,16 @@
       "schedule": "0 3 * * *"
     },
     {
-      "path": "/api/admin/compliance/sync",
+      "path": "/api/cron/sync-recalls",
       "schedule": "0 5 * * 1"
+    },
+    {
+      "path": "/api/cron/sync-caers",
+      "schedule": "10 5 * * 1"
+    },
+    {
+      "path": "/api/cron/sync-warning-letters",
+      "schedule": "20 5 * * 1"
     },
     {
       "path": "/api/cron/rescore-products",
