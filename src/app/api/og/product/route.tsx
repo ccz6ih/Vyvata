@@ -53,7 +53,12 @@ export async function GET(req: Request) {
   const brand = (data?.row.brand ?? "Vyvata").slice(0, 40);
   const name = (data?.row.name ?? "Product Scorecard").slice(0, 60);
   const category = (data?.row.category ?? "supplement").slice(0, 20);
-  const hasScore = !!data?.score;
+  // DIAGNOSTIC: ?debug=noscore forces the fallback path even when data
+  // exists. Lets us bisect whether the crash is in the score rendering
+  // branch or in the real brand/name strings. Remove once the OG 0-byte
+  // issue is resolved.
+  const debugNoscore = url.searchParams.get("debug") === "noscore";
+  const hasScore = !debugNoscore && !!data?.score;
   const intScore = hasScore ? Math.round(Number(data!.score!.integrity_score) || 0) : null;
   const tier = hasScore ? data!.score!.tier : null;
   const tierColor = tier ? TIER_COLOR[tier] ?? "#4a6080" : "#4a6080";
