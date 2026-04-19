@@ -262,7 +262,7 @@ async function matchLetter(
  */
 export async function ingestFdaWarningLetters(
   supabase: SupabaseClient,
-  opts?: { fulltext?: string; length?: number }
+  opts?: { fulltext?: string; pages?: number }
 ): Promise<IngestResult> {
   const result: IngestResult = { fetched: 0, inserted: 0, updated: 0, skipped: 0, errors: [] };
 

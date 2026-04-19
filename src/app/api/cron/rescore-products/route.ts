@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase";
 import { rescoreProducts } from "@/lib/scoring/rescore-job";
 import { notifyPractitionersOfTierChanges } from "@/lib/scoring/notify-tier-changes";
+import { wrapScraperRun } from "@/lib/scraper-observability";
 import { hasAdminSession } from "@/lib/admin-auth";
 
 export const maxDuration = 120;
@@ -25,7 +26,27 @@ async function handle(req: NextRequest) {
   }
 
   const supabase = getSupabaseServer();
-  const result = await rescoreProducts(supabase, { reason: "cron" });
+  const result = await wrapScraperRun(
+    "rescore_products",
+    async (rec) => {
+      const r = await rescoreProducts(supabase, { reason: "cron" });
+      // "rescored" = new product_scores rows written; track as inserted.
+      // "skipped" = no-op (score unchanged from prior row); track in notes.
+      rec.count(r.rescored, 0);
+      rec.note({
+        considered: r.considered,
+        skipped: r.skipped,
+        tierChanges: r.tierChanges.length,
+        errorCount: r.errors.length,
+      });
+      if (r.errors.length > 0) {
+        rec.partial(`${r.errors.length} products errored during rescore`);
+        rec.note({ sampleErrors: r.errors.slice(0, 3) });
+      }
+      return r;
+    },
+    { supabase }
+  );
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
   const notifications = await notifyPractitionersOfTierChanges(

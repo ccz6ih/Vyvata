@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
   const [recalls, caers, warningLetters] = await Promise.all([
     ingestOpenFdaRecalls(supabase, { daysBack: 730 }),
     ingestCaersEvents(supabase, { daysBack: 730, minCount: 3 }),
-    ingestFdaWarningLetters(supabase, { fulltext: "dietary supplement", length: 250 }),
+    ingestFdaWarningLetters(supabase, { fulltext: "dietary supplement", pages: 5 }),
   ]);
 
   const totalInserted = recalls.inserted + caers.inserted + warningLetters.inserted;
