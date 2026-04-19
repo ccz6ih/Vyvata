@@ -5,12 +5,20 @@
   "installCommand": "npm install",
   "crons": [
     {
+      "path": "/api/cron/import-products",
+      "schedule": "0 1 * * *"
+    },
+    {
       "path": "/api/cron/refresh-active-products",
       "schedule": "0 2 * * *"
     },
     {
       "path": "/api/cron/cleanup-cache",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/admin/compliance/sync",
+      "schedule": "0 5 * * 1"
     }
   ]
 }

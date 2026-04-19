@@ -20,7 +20,7 @@ import { importProductsDirectly } from './db-import';
 
 const CONFIG = {
   // Discovery settings
-  maxProductsPerCategory: 5,  // Per search term
+  maxProductsPerCategory: 15,  // Per search term (15 × 10 categories = 150/run)
   minVSFScore: 0,  // Set to 60 to skip low-quality products
   
   // Preferred brands (searched first)

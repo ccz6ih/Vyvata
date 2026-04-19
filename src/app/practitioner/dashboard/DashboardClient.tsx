@@ -10,6 +10,7 @@ import type { PractitionerSession } from "@/lib/practitioner-auth";
 import { VyvataLogo } from "@/components/VyvataLogo";
 import PractitionerNav from "@/components/PractitionerNav";
 import InvitePatientButton from "@/components/InvitePatientButton";
+import ComplianceAlertBanner from "@/components/ComplianceAlertBanner";
 
 // ── CSV Export Helper ─────────────────────────────────────────────────────────
 function exportPatientsToCSV(patients: PatientLink[], practitionerName: string) {
@@ -464,6 +465,8 @@ export default function PractitionerDashboardClient({
       </header>
 
       <div className="max-w-3xl mx-auto px-5 py-8 space-y-8">
+
+        <ComplianceAlertBanner />
 
         {/* ── Welcome + stats ── */}
         <div className="space-y-4">

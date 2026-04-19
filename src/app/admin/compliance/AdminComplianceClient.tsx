@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft, AlertTriangle, ShieldCheck, RefreshCw, CheckCircle2,
-  ExternalLink, Trash2,
+  ExternalLink, Trash2, Link as LinkIcon, X, Search,
 } from "lucide-react";
 import { VyvataLogo } from "@/components/VyvataLogo";
 
@@ -65,6 +65,7 @@ export default function AdminComplianceClient() {
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [filter, setFilter] = useState<string | null>(null);
+  const [matchingFlag, setMatchingFlag] = useState<FlagRow | null>(null);
 
   const fetchFlags = useCallback(async () => {
     setLoading(true);
@@ -83,21 +84,19 @@ export default function AdminComplianceClient() {
 
   useEffect(() => { fetchFlags(); }, [fetchFlags]);
 
-  const syncRecalls = async () => {
-    if (!confirm("Fetch the latest supplement recalls from openFDA? Hits the federal API directly.")) return;
+  const syncAll = async () => {
+    if (!confirm("Fetch latest enforcement data from openFDA (recalls + CAERS adverse events)? Hits federal APIs directly.")) return;
     setSyncing(true);
     setSyncMessage(null);
     try {
-      const res = await fetch("/api/admin/compliance/sync-recalls", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ daysBack: 730 }),
-      });
+      const res = await fetch("/api/admin/compliance/sync", { method: "POST" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Sync failed");
+      const rec = data.sources?.openfda_recall;
+      const cae = data.sources?.caers;
       setSyncMessage(
-        `Fetched ${data.fetched} · inserted ${data.inserted} · updated ${data.updated} · skipped ${data.skipped}${
-          data.errors?.length ? ` · ${data.errors.length} errors` : ""
+        `Recalls: ${rec.inserted} new, ${rec.updated} updated · CAERS: ${cae.inserted} new, ${cae.updated} updated${
+          data.totals.errors ? ` · ${data.totals.errors} errors` : ""
         }`
       );
       await fetchFlags();
@@ -142,7 +141,7 @@ export default function AdminComplianceClient() {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={syncRecalls}
+            onClick={syncAll}
             disabled={syncing}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
             style={{
@@ -152,7 +151,7 @@ export default function AdminComplianceClient() {
             }}
           >
             {syncing ? <RefreshCw size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-            Sync openFDA recalls
+            Sync openFDA
           </button>
         </div>
       </header>
@@ -274,23 +273,50 @@ export default function AdminComplianceClient() {
                         )}
                       </div>
                     </div>
-                    <button
-                      onClick={() => resolve(f.id)}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0"
-                      style={{
-                        background: "rgba(255,255,255,0.04)",
-                        border: "1px solid rgba(201,214,223,0.12)",
-                        color: "#C9D6DF",
-                      }}
-                      title="Mark as false positive"
-                    >
-                      <Trash2 size={11} /> Dismiss
-                    </button>
+                    <div className="flex flex-col gap-1.5 shrink-0">
+                      {f.match_confidence !== "high" && (
+                        <button
+                          onClick={() => setMatchingFlag(f)}
+                          className="flex items-center justify-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold"
+                          style={{
+                            background: "rgba(20,184,166,0.1)",
+                            border: "1px solid rgba(20,184,166,0.25)",
+                            color: "#14B8A6",
+                          }}
+                          title="Manually match this flag to a manufacturer or product"
+                        >
+                          <LinkIcon size={11} /> Match
+                        </button>
+                      )}
+                      <button
+                        onClick={() => resolve(f.id)}
+                        className="flex items-center justify-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold"
+                        style={{
+                          background: "rgba(255,255,255,0.04)",
+                          border: "1px solid rgba(201,214,223,0.12)",
+                          color: "#C9D6DF",
+                        }}
+                        title="Mark as false positive"
+                      >
+                        <Trash2 size={11} /> Dismiss
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
             })}
           </div>
+        )}
+
+        {matchingFlag && (
+          <MatchModal
+            flag={matchingFlag}
+            onClose={() => setMatchingFlag(null)}
+            onMatched={async () => {
+              setMatchingFlag(null);
+              await fetchFlags();
+            }}
+          />
         )}
 
         <p className="text-xs text-center pb-4" style={{ color: "#4a6080" }}>
@@ -299,6 +325,182 @@ export default function AdminComplianceClient() {
         </p>
       </div>
     </main>
+  );
+}
+
+function MatchModal({
+  flag, onClose, onMatched,
+}: {
+  flag: FlagRow;
+  onClose: () => void;
+  onMatched: () => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<{
+    manufacturers: Array<{ id: string; name: string; country: string | null }>;
+    products: Array<{ id: string; brand: string; name: string; category: string }>;
+  }>({ manufacturers: [], products: [] });
+  const [searching, setSearching] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (query.trim().length < 2) {
+      setResults({ manufacturers: [], products: [] });
+      return;
+    }
+    let cancelled = false;
+    setSearching(true);
+    const t = setTimeout(() => {
+      fetch(`/api/admin/compliance/search?q=${encodeURIComponent(query)}`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (!cancelled) setResults(data);
+        })
+        .finally(() => {
+          if (!cancelled) setSearching(false);
+        });
+    }, 200);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [query]);
+
+  const applyMatch = async (body: { manufacturerId?: string; productId?: string; notes?: string }) => {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/admin/compliance/flags/${flag.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "match", ...body }),
+      });
+      if (res.ok) onMatched();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center px-4 py-8"
+      style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div
+        className="w-full max-w-xl rounded-2xl p-6 space-y-4 max-h-[85vh] overflow-y-auto"
+        style={{
+          background: "#0E2A50",
+          border: "1px solid rgba(201,214,223,0.12)",
+          fontFamily: "Inter, sans-serif",
+        }}
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-1">
+            <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "#14B8A6" }}>
+              Manual match
+            </p>
+            <h3 className="text-sm font-bold text-white" style={{ fontFamily: "Montserrat, sans-serif" }}>
+              {flag.subject}
+            </h3>
+            <p className="text-xs" style={{ color: "#7A90A8" }}>
+              Current confidence: <span style={{ color: CONFIDENCE_COLOR[flag.match_confidence] }}>{flag.match_confidence}</span>
+            </p>
+          </div>
+          <button onClick={onClose} style={{ color: "#7A90A8" }} aria-label="Close">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="relative">
+          <Search
+            size={14}
+            className="absolute left-3 top-1/2 -translate-y-1/2"
+            style={{ color: "#7A90A8" }}
+          />
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            autoFocus
+            placeholder="Search manufacturer or product name…"
+            className="w-full pl-9 pr-3 py-2.5 rounded-lg text-sm text-white placeholder:text-[#4a6080]"
+            style={{
+              background: "rgba(11,31,59,0.6)",
+              border: "1px solid rgba(201,214,223,0.12)",
+            }}
+          />
+        </div>
+
+        {query.trim().length >= 2 && results.manufacturers.length === 0 && results.products.length === 0 && !searching && (
+          <p className="text-xs" style={{ color: "#7A90A8" }}>No matches. Try a different spelling.</p>
+        )}
+
+        {results.manufacturers.length > 0 && (
+          <div className="space-y-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "#7A90A8" }}>
+              Manufacturers
+            </p>
+            {results.manufacturers.map((m) => (
+              <button
+                key={m.id}
+                disabled={saving}
+                onClick={() => applyMatch({ manufacturerId: m.id, notes: `matched to manufacturer ${m.name}` })}
+                className="w-full text-left px-3 py-2 rounded-lg text-xs flex items-center justify-between"
+                style={{
+                  background: "rgba(11,31,59,0.6)",
+                  border: "1px solid rgba(201,214,223,0.08)",
+                  color: "#C9D6DF",
+                }}
+              >
+                <span>
+                  <strong style={{ color: "#14B8A6" }}>{m.name}</strong>
+                  {m.country && <span style={{ color: "#7A90A8" }}> · {m.country}</span>}
+                </span>
+                <LinkIcon size={11} style={{ color: "#14B8A6" }} />
+              </button>
+            ))}
+          </div>
+        )}
+
+        {results.products.length > 0 && (
+          <div className="space-y-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "#7A90A8" }}>
+              Products
+            </p>
+            {results.products.map((p) => (
+              <button
+                key={p.id}
+                disabled={saving}
+                onClick={() => applyMatch({ productId: p.id, notes: `matched to product ${p.brand} · ${p.name}` })}
+                className="w-full text-left px-3 py-2 rounded-lg text-xs flex items-center justify-between"
+                style={{
+                  background: "rgba(11,31,59,0.6)",
+                  border: "1px solid rgba(201,214,223,0.08)",
+                  color: "#C9D6DF",
+                }}
+              >
+                <span>
+                  <strong style={{ color: "#14B8A6" }}>{p.brand}</strong>
+                  <span style={{ color: "#C9D6DF" }}> · {p.name}</span>
+                  <span style={{ color: "#7A90A8" }}> · {p.category}</span>
+                </span>
+                <LinkIcon size={11} style={{ color: "#14B8A6" }} />
+              </button>
+            ))}
+          </div>
+        )}
+
+        <p className="text-[10px] pt-2" style={{ color: "#4a6080" }}>
+          Manual match sets confidence to <span style={{ color: "#34D399" }}>high</span> and is persisted on the flag row.
+        </p>
+      </div>
+    </div>
   );
 }
 

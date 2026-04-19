@@ -6,12 +6,12 @@ This directory contains scheduled tasks for automated data management.
 
 | Task | Frequency | Purpose | Rate Limit Impact |
 |------|-----------|---------|-------------------|
-| `refresh-active-products.ts` | Daily @ 2 AM | Refresh DSLD data for products in our DB | ~100 requests/day |
-| `cleanup-cache.ts` | Daily @ 3 AM | Mark expired cache entries as stale | 0 (internal DB only) |
-| `auto-import-products.ts` | Weekly Sunday @ 1 AM | Discover new popular products | ~50-200 requests/week |
-| `sync-certifications.ts` | Weekly Monday @ 4 AM | Update NSF/USP certifications | ~50 requests/week |
+| `import-products` | Daily @ 1 AM | Auto-discover & import ~150 new products | ~200 requests/day |
+| `refresh-active-products` | Daily @ 2 AM | Refresh DSLD data for products in our DB | ~100+ requests/day |
+| `cleanup-cache` | Daily @ 3 AM | Mark expired cache entries as stale | 0 (internal DB only) |
 
-**Total API Load:** ~150 requests/day average (well under 1,000/hr free tier)
+**Total API Load:** ~300 requests/day (well under 1,000/hr free tier)  
+**Growth Rate:** ~150 products/day → 1,000+ products in 7 days
 
 ## 🔑 API Key Setup
 
@@ -32,14 +32,17 @@ NEXT_PUBLIC_DSLD_API_KEY=your_api_key_here
 
 ### Manual Execution
 ```bash
+# Daily product import (run manually to test)
+curl -X POST http://localhost:3000/api/cron/import-products
+
 # Refresh active products
 npx tsx cron/refresh-active-products.ts
 
 # Cleanup expired cache
 npx tsx cron/cleanup-cache.ts
 
-# Weekly auto-import
-npx tsx cron/auto-import-products.ts --limit 50
+# CLI auto-import (legacy, prefer API endpoint)
+npx tsx scripts/auto-import-products.ts --limit 15
 ```
 
 ### Automated Scheduling
