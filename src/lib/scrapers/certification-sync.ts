@@ -52,15 +52,25 @@ export async function checkAllCertifications(
   };
   const details: any[] = [];
 
-  // Check NSF Sport
+  // Check NSF Sport. findMatches() uses structured brand+name matching;
+  // much more accurate than the legacy scrape(singleString) path, and
+  // shares one registry fetch across the whole sync via in-memory cache.
   try {
-    const nsfResult = await nsfSportScraper.scrape(`${brand} ${productName}`);
-    if (nsfResult.success && nsfResult.data && nsfResult.data.length > 0) {
+    const nsfMatches = await nsfSportScraper.findMatches(brand, productName);
+    if (nsfMatches.length > 0) {
       certifications.nsf_sport = true;
-      details.push(...nsfResult.data.map(d => ({ source: 'nsf_sport', ...d })));
-      console.log(`[CertSync] ✓ NSF Sport certified`);
+      const top = nsfMatches[0];
+      details.push({
+        source: 'nsf_sport',
+        brand: top.brand,
+        productName: top.productName,
+        certificationType: 'nsf_sport',
+        verificationUrl: top.detailUrl,
+        certificationNumber: top.listingId ?? undefined,
+      });
+      console.log(`[CertSync] ✓ NSF Sport certified (${nsfMatches.length} listing match${nsfMatches.length === 1 ? '' : 'es'})`);
     } else {
-      console.log(`[CertSync] ✗ NSF Sport: ${nsfResult.error || 'Not found'}`);
+      console.log(`[CertSync] ✗ NSF Sport: no match for ${brand} ${productName}`);
     }
   } catch (error: any) {
     console.error(`[CertSync] NSF Sport error:`, error.message);
