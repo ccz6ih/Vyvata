@@ -290,7 +290,7 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
-  const [minScore, setMinScore] = useState(60);
+  const [minScore, setMinScore] = useState(0); // Default to 0 to show all products including unscored ones
 
   useEffect(() => {
     fetchProducts();
