@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import type { AuditResult, ReportSection, WorkingItem, WastingItem, FightingItem, MissingItem, RevisedStackItem } from "@/types";
 import { VyvataLogo } from "@/components/VyvataLogo";
+import ProductRecommendations from "@/components/ProductRecommendations";
 import { ProtocolEvidenceSection } from "@/components/ProtocolEvidenceSection";
 import { StackScoreCard } from "@/components/StackScoreCard";
 import { DSLDProductInfo } from "@/components/DSLDProductInfo";
@@ -310,26 +311,29 @@ function FullReport({ report, scores }: { report: ReportSection; scores?: StackS
             {report.missing.map((item, i) => (
               <div
                 key={i}
-                className="flex items-start gap-3 pb-3"
+                className="pb-3"
                 style={{
                   borderBottom: i < report.missing.length - 1 ? "1px solid rgba(201,214,223,0.06)" : "none",
                 }}
               >
-                <EvidencePip tier={item.evidenceTier} />
-                <div>
-                  <div
-                    className="text-sm font-semibold"
-                    style={{ color: "#14B8A6", fontFamily: "Montserrat, sans-serif" }}
-                  >
-                    {item.name}
-                  </div>
-                  <div
-                    className="text-xs mt-0.5 leading-relaxed"
-                    style={{ color: "#C9D6DF", fontFamily: "Inter, sans-serif" }}
-                  >
-                    {item.reason}
+                <div className="flex items-start gap-3">
+                  <EvidencePip tier={item.evidenceTier} />
+                  <div className="flex-1">
+                    <div
+                      className="text-sm font-semibold"
+                      style={{ color: "#14B8A6", fontFamily: "Montserrat, sans-serif" }}
+                    >
+                      {item.name}
+                    </div>
+                    <div
+                      className="text-xs mt-0.5 leading-relaxed"
+                      style={{ color: "#C9D6DF", fontFamily: "Inter, sans-serif" }}
+                    >
+                      {item.reason}
+                    </div>
                   </div>
                 </div>
+                <ProductRecommendations ingredient={item.name} limit={3} title={`Top-scored ${item.name} products`} />
               </div>
             ))}
           </div>
