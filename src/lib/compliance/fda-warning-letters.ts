@@ -22,9 +22,24 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import * as cheerio from "cheerio";
 
-const DT_BASE = "https://www.fda.gov/datatables/views/ajax";
-const VIEW_PARAMS =
-  "view_name=warning_letter_solr_index&view_display_id=warning_letter_solr_block_1";
+// FDA's Drupal DataTables AJAX endpoint (`/datatables/views/ajax`) that an
+// earlier version of this file targeted started returning 403 from
+// Cloudflare some time before 2026-04. The underlying HTML page is still
+// reachable, so we switched to parsing that directly — slower per fetch
+// (80 KB HTML vs. 2 MB JSON) but stable, no JS execution needed, and the
+// data is server-rendered into a table.
+const WL_PAGE =
+  "https://www.fda.gov/inspections-compliance-enforcement-and-criminal-investigations/compliance-actions-and-activities/warning-letters";
+
+// Realistic browser headers. A bot-identifying UA triggers the 403;
+// switching to a Chrome UA + standard accept headers gets us 200.
+const BROWSER_HEADERS: Record<string, string> = {
+  "User-Agent":
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+    "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "Accept-Language": "en-US,en;q=0.9",
+};
 
 export interface FdaWarningLetter {
   letterId: string;          // stable slug from the letter URL (source_id)
@@ -42,13 +57,6 @@ export interface IngestResult {
   updated: number;
   skipped: number;
   errors: string[];
-}
-
-// DataTables row shape: { data: string[][], recordsTotal, recordsFiltered }.
-interface DataTablesResponse {
-  data?: unknown[][];
-  recordsTotal?: number;
-  recordsFiltered?: number;
 }
 
 function normalize(s: string): string {
@@ -74,26 +82,6 @@ function classifyViolations(subject: string): string[] {
   return tags;
 }
 
-// Each DataTables cell is an HTML fragment (link, div, span). Strip it to text
-// and pull href where relevant.
-function cellText(html: unknown): string {
-  if (typeof html !== "string") return "";
-  return cheerio.load(html, {}, false).root().text().replace(/\s+/g, " ").trim();
-}
-function cellLink(html: unknown): string | null {
-  if (typeof html !== "string") return null;
-  const href = cheerio.load(html, {}, false)("a").attr("href") ?? null;
-  if (!href) return null;
-  return href.startsWith("http") ? href : `https://www.fda.gov${href}`;
-}
-
-function parseDate(s: string): string | null {
-  if (!s) return null;
-  const d = new Date(s);
-  if (isNaN(d.getTime())) return null;
-  return d.toISOString().slice(0, 10);
-}
-
 // Derive a stable source_id from the letter URL. Letter URLs take the form
 // /inspections-compliance-enforcement-and-criminal-investigations/warning-letters/<company-slug>-<id>-MMDDYYYY
 // so the trailing path segment is unique and idempotent across runs.
@@ -106,51 +94,97 @@ function letterIdFromUrl(url: string): string {
   }
 }
 
+// The letter URL slug encodes the letter issue date as MMDDYYYY at the
+// end, e.g. `agebox-inc-718252-12192025`. Parse it out when the HTML
+// row doesn't expose a dedicated column for the issue date.
+function issuedDateFromSlug(slug: string): string | null {
+  const match = slug.match(/(\d{8})$/);
+  if (!match) return null;
+  const mm = match[1].slice(0, 2);
+  const dd = match[1].slice(2, 4);
+  const yyyy = match[1].slice(4, 8);
+  const iso = `${yyyy}-${mm}-${dd}`;
+  return Number.isNaN(Date.parse(iso)) ? null : iso;
+}
+
 /**
- * Fetch the warning letters JSON. Defaults scope to the dietary supplement
- * fulltext — the listing is huge and most letters are out of Vyvata's scope.
+ * Fetch the warning letters list by scraping the server-rendered HTML
+ * page. Defaults scope to dietary-supplement fulltext and the first
+ * page (10 most-recent letters). Bump `pages` to walk further back.
+ *
+ * Each page is ~80 KB and rate-limited by the polite 1-req/sec
+ * throttling FDA's Drupal infra does implicitly.
  */
 export async function fetchFdaWarningLetters(opts?: {
   fulltext?: string;
-  length?: number;
+  pages?: number;
 }): Promise<FdaWarningLetter[]> {
   const fulltext = opts?.fulltext ?? "dietary supplement";
-  const length = Math.min(opts?.length ?? 250, 1000);
+  const pages = Math.max(1, Math.min(opts?.pages ?? 3, 20));
 
-  const url = `${DT_BASE}?${VIEW_PARAMS}&length=${length}&start=0&search_api_fulltext=${encodeURIComponent(fulltext)}`;
-
-  const res = await fetch(url, {
-    headers: {
-      Accept: "application/json",
-      // FDA's edge returns 403 for unknown UAs — identify as a real browser.
-      "User-Agent":
-        "Mozilla/5.0 (compatible; VyvataBot/1.0; +https://vyvata.com/contact)",
-    },
-  });
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`FDA warning letters fetch failed ${res.status}: ${body.slice(0, 200)}`);
-  }
-  const json = (await res.json()) as DataTablesResponse;
-  const rows = json.data ?? [];
-
-  // DataTables column order on the warning letters view (current as of 2026):
-  //   [0]=Posted Date, [1]=Letter Issue Date, [2]=Company Name (link),
-  //   [3]=Issuing Office, [4]=Subject, [5]=Response Letter, [6]=Closeout Letter.
-  // Cells are HTML fragments. If FDA re-orders columns this will yield empty
-  // strings rather than misattribute fields.
   const out: FdaWarningLetter[] = [];
-  for (const row of rows) {
-    if (!Array.isArray(row) || row.length < 5) continue;
-    const issuedDate = parseDate(cellText(row[1]));
-    const company = cellText(row[2]);
-    const letterUrl = cellLink(row[2]);
-    const issuingOffice = cellText(row[3]) || null;
-    const subject = cellText(row[4]) || "(no subject)";
-    if (!company || !letterUrl) continue;
+  const seen = new Set<string>();
+
+  for (let page = 0; page < pages; page++) {
+    const url = `${WL_PAGE}?search_api_fulltext=${encodeURIComponent(fulltext)}&page=${page}`;
+    const res = await fetch(url, { headers: BROWSER_HEADERS });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throw new Error(`FDA warning letters fetch failed ${res.status}: ${body.slice(0, 200)}`);
+    }
+    const html = await res.text();
+    const pageLetters = parseWarningLettersPage(html);
+
+    if (pageLetters.length === 0) break; // no more pages
+
+    for (const l of pageLetters) {
+      if (seen.has(l.letterId)) continue;
+      seen.add(l.letterId);
+      out.push(l);
+    }
+  }
+
+  return out;
+}
+
+// Cheerio selectors target the Drupal views table rows the warning-letters
+// page emits. A minimal row looks like:
+//
+//   <tr>
+//     <td class="views-field-company-name">
+//       <a href="/.../warning-letters/agebox-inc-718252-12192025">Agebox Inc.</a>
+//     </td>
+//     <td class="views-field-field-building">Center for Drug Evaluation and Research (CDER)</td>
+//     <td class="views-field-field-detailed-description-2">Unapproved New Drug/Misbranded</td>
+//     ...
+//   </tr>
+//
+// If FDA renames the column classes this yields [] rather than
+// misattributing fields. The smoke test in
+// scripts/test-warning-letters-selector.ts catches that regression.
+function parseWarningLettersPage(html: string): FdaWarningLetter[] {
+  const $ = cheerio.load(html);
+  const out: FdaWarningLetter[] = [];
+
+  $("tr").each((_, tr) => {
+    const $tr = $(tr);
+    const $companyCell = $tr.find("td.views-field-company-name");
+    const $link = $companyCell.find("a").first();
+    const href = $link.attr("href") ?? "";
+    if (!href.includes("/warning-letters/") || !/\d{8}$/.test(href)) return;
+
+    const company = $link.text().trim();
+    if (!company) return;
+
+    const letterUrl = href.startsWith("http") ? href : `https://www.fda.gov${href}`;
+    const letterId = letterIdFromUrl(letterUrl);
+    const issuedDate = issuedDateFromSlug(letterId);
+    const issuingOffice = $tr.find("td.views-field-field-building").text().trim() || null;
+    const subject = $tr.find("td.views-field-field-detailed-description-2").text().trim() || "(no subject)";
     const violationTypes = classifyViolations(subject);
+
     out.push({
-      letterId: letterIdFromUrl(letterUrl),
+      letterId,
       company,
       issuedDate,
       subject,
@@ -158,7 +192,8 @@ export async function fetchFdaWarningLetters(opts?: {
       letterUrl,
       violationTypes,
     });
-  }
+  });
+
   return out;
 }
 

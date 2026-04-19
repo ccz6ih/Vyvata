@@ -62,7 +62,8 @@ export async function fetchCaersBrandHistogram(opts?: {
   const start = new Date(end.getTime() - daysBack * 86_400_000);
   const fmt = (d: Date) => d.toISOString().slice(0, 10).replace(/-/g, "");
 
-  const search = encodeURIComponent(`date_started:[${fmt(start)}+TO+${fmt(end)}]`);
+  // See openfda-recalls.ts for the `+TO+` bug — same fix here.
+  const search = encodeURIComponent(`date_started:[${fmt(start)} TO ${fmt(end)}]`);
   const count = encodeURIComponent("products.name_brand.exact");
   const url = `${CAERS_BASE}?search=${search}&count=${count}&limit=1000`;
 

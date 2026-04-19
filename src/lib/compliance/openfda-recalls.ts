@@ -85,7 +85,13 @@ export async function fetchOpenFdaRecalls(opts?: {
   const start = new Date(end.getTime() - daysBack * 86_400_000);
   const fmt = (d: Date) => d.toISOString().slice(0, 10).replace(/-/g, "");
 
-  const search = encodeURIComponent(`report_date:[${fmt(start)}+TO+${fmt(end)}]`);
+  // openFDA (Lucene) wants spaces in the range: `report_date:[A TO B]`.
+  // Writing `+TO+` here was an attempt to put URL-encoded spaces in
+  // directly, but encodeURIComponent turns `+` into `%2B` — openFDA
+  // then saw literal `+` characters and returned a `parse_exception`
+  // at column 33. Using a space makes encodeURIComponent emit `%20`
+  // correctly, which decodes back to a space on openFDA's side.
+  const search = encodeURIComponent(`report_date:[${fmt(start)} TO ${fmt(end)}]`);
   const url = `${OPENFDA_BASE}?search=${search}&limit=${limit}`;
 
   const res = await fetch(url, { headers: { Accept: "application/json" } });
