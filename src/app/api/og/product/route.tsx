@@ -41,6 +41,12 @@ interface Row {
   product_scores: Array<{
     integrity_score: number;
     tier: "elite" | "verified" | "standard" | "rejected";
+    evidence_score: number | null;
+    safety_score: number | null;
+    formulation_score: number | null;
+    manufacturing_score: number | null;
+    transparency_score: number | null;
+    sustainability_score: number | null;
     is_current: boolean;
   }>;
 }
@@ -55,7 +61,9 @@ async function loadData(params: URLSearchParams) {
   const supabase = createClient(url, key, { auth: { persistSession: false } });
   const query = supabase
     .from("products")
-    .select("brand, name, category, product_scores(integrity_score, tier, is_current)")
+    .select(
+      "brand, name, category, product_scores(integrity_score, tier, evidence_score, safety_score, formulation_score, manufacturing_score, transparency_score, sustainability_score, is_current)"
+    )
     .eq("status", "active");
   const finished = slug ? query.eq("slug", slug) : query.eq("id", id!);
   const { data } = await finished.maybeSingle();
@@ -76,6 +84,23 @@ export async function GET(req: Request) {
   const intScore = hasScore ? Math.round(Number(data!.score!.integrity_score) || 0) : null;
   const tier = hasScore ? data!.score!.tier : null;
   const tierColor = tier ? TIER_COLOR[tier] ?? "#4a6080" : "#4a6080";
+
+  // Six-segment dimension bar: each segment's color signals its sub-score at
+  // a glance. Visible only when scored. Plain solid rectangles — no border-
+  // radius / border / padding tricks that could re-trip Satori.
+  const s = data?.score;
+  const rawDims = s
+    ? [s.evidence_score, s.safety_score, s.formulation_score, s.manufacturing_score, s.transparency_score, s.sustainability_score]
+    : [];
+  const dimSegments = rawDims.map((raw) => {
+    const v = Math.max(0, Math.min(100, Number(raw) || 0));
+    const color =
+      v >= 80 ? "#34D399"
+      : v >= 60 ? "#14B8A6"
+      : v >= 40 ? "#F59E0B"
+      : "#F87171";
+    return { v, color };
+  });
 
   return new ImageResponse(
     (
@@ -178,6 +203,42 @@ export async function GET(req: Request) {
             >
               {name}
             </div>
+
+            {/* Six-segment dimension bar (E · S · F · M · T · Su) */}
+            {dimSegments.length === 6 && (
+              <div style={{ display: "flex", marginTop: 20, height: 6, gap: 3 }}>
+                {dimSegments.map((d, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      flex: 1,
+                      height: 6,
+                      background: d.color,
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+            {dimSegments.length === 6 && (
+              <div
+                style={{
+                  display: "flex",
+                  marginTop: 6,
+                  gap: 3,
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: 2,
+                  color: "#7A90A8",
+                  textTransform: "uppercase",
+                }}
+              >
+                {["Evidence", "Safety", "Formulation", "Manufacturing", "Transparency", "Sustainability"].map((label) => (
+                  <div key={label} style={{ flex: 1, textAlign: "center" }}>
+                    {label.slice(0, 3)}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
