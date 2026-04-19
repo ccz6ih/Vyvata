@@ -2,102 +2,81 @@
 
 ## Overview
 
-The brand submission portal allows supplement manufacturers to submit their product documentation for verified VSF scoring. This doc covers the setup steps needed to complete the portal.
+The brand submission portal allows supplement manufacturers to submit their product documentation for verified VSF scoring. This doc covers the final setup steps to launch the portal.
 
-## Current Status
+## Current Status (Updated 2026-04-21)
 
 ### ✅ Complete
-- Database schema (`brand_accounts`, `product_submissions` tables)
+- Database schema (`brand_accounts`, `product_submissions`, `submission_history` tables)
 - Brand authentication (magic-link via Supabase Auth)
 - API routes for submissions (CRUD, submit, upload)
 - Form validation schemas
 - Frontend pages (login, dashboard, new submission, edit submission)
 - Admin review UI (approve/reject/request-revision)
+- **Approval transaction** (`approveSubmission()`) - transfers submission data to products, ingredients, certifications, and triggers verified scoring
+- **Audit trail** - `submission_history` table tracks all state transitions
+- **Verified scoring** - Approved submissions get `score_mode='verified'` rows in `product_scores`
 
 ### ⚠️ Needs Setup
 
-#### 1. Supabase Storage Bucket
+#### 1. Apply Database Migration
 
-**What:** File storage for CoA PDFs, clinical studies, audit reports
+**What:** The `submission_history` audit trail table
+
+**Steps:**
+```bash
+# Run the migration in Supabase Dashboard > SQL Editor
+# File: supabase/migrations/20260421_submission_history.sql
+```
+
+This creates:
+- `submission_history` table for audit trail
+- Automatic trigger to log all status transitions
+- RLS policies for brand/admin access
+
+#### 2. Supabase Storage Bucket
+
+**What:** File storage for CoA PDFs, clinical studies, supplement facts panels
 
 **Steps:**
 1. Go to Supabase Dashboard → Storage
-2. Create new bucket: `brand-submissions`
-3. Set as **Private** (not public)
-4. Configure RLS policies:
+2. Click "Create a new bucket"
+3. Bucket name: `brand-submissions`
+4. Public: **OFF** (private bucket)
+5. Allowed MIME types: `application/pdf`, `image/png`, `image/jpeg`, `image/webp`
+6. File size limit: 10 MB
+7. Click "Create bucket"
+8. Run the setup SQL: `supabase/storage/brand-submissions-setup.sql`
 
-```sql
--- Allow service role full access
-CREATE POLICY service_full_access ON storage.objects
-  FOR ALL TO service_role
-  USING (bucket_id = 'brand-submissions')
-  WITH CHECK (bucket_id = 'brand-submissions');
-
--- Allow authenticated brands to upload to their own folder
-CREATE POLICY brand_upload_own ON storage.objects
-  FOR INSERT TO authenticated
-  WITH CHECK (
-    bucket_id = 'brand-submissions' 
-    AND (storage.foldername(name))[1] IN (
-      SELECT id::text FROM public.brand_accounts
-      WHERE email = lower(auth.jwt()->>'email')
-    )
-  );
-
--- Allow authenticated brands to read their own files
-CREATE POLICY brand_read_own ON storage.objects
-  FOR SELECT TO authenticated
-  USING (
-    bucket_id = 'brand-submissions'
-    AND (storage.foldername(name))[1] IN (
-      SELECT id::text FROM public.brand_accounts
-      WHERE email = lower(auth.jwt()->>'email')
-    )
-  );
+**Or use the Supabase CLI:**
+```bash
+# If you have Supabase CLI installed
+supabase storage create brand-submissions --no-public
 ```
+
+Then apply RLS policies from `supabase/storage/brand-submissions-setup.sql` in SQL Editor.
 
 **Test:**
 ```bash
-# Try uploading via the submission form
-# Should see files at: brand-submissions/{brand_account_id}/{submission_id}/...
+# Try uploading via the submission form at /brand/submissions/[id]
+# Should see files at: brand-submissions/{brand_account_id}/{submission_id}/coa-*.pdf
 ```
 
-#### 2. Rescore Integration
-
-**What:** When admin approves a submission, trigger product rescore to update verified score
-
-**Current:** Approve/reject/request-revision routes exist but don't trigger rescore
-
-**Steps:**
-1. Open `src/app/api/admin/submissions/[id]/approve/route.ts`
-2. After updating submission status to 'approved', call rescore:
-
-```typescript
-// After approval logic
-if (submission.product_id) {
-  // Trigger rescore for this product
-  await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/admin/products/${submission.product_id}/rescore`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${process.env.VYVATA_ADMIN_SECRET}`,
-    },
-  });
-}
-```
-
-#### 3. Email Notifications
+#### 3. Email Notifications (Optional - P2)
 
 **What:** Email brand when submission is approved/rejected/needs-revision
 
-**Current:** Resend already integrated for magic links, just need submission templates
+**Current:** Resend already integrated for magic links, but submission notification templates not yet created
 
-**Steps:**
-1. Create email templates in `src/lib/email-templates/`:
-   - `submission-approved.ts` - "You're Verified! View your scorecard"
-   - `submission-rejected.ts` - "Your submission was not approved"
-   - `submission-needs-revision.ts` - "Please update your submission"
+**Priority:** P2 (Nice to have - submission flow works without emails, brands see status in dashboard)
 
-2. Update admin API routes to send emails after status change
+**Steps (when ready):**
+1. Create email templates in `src/lib/emails/brand/`:
+   - `submission-approved.tsx` - "Product Verified! View your scorecard"
+   - `submission-rejected.tsx` - "Submission not approved"
+   - `submission-needs-revision.tsx` - "Please update your submission"
+
+2. Wire emails into approval transaction (`approveSubmission()` in `src/lib/submissions/approve-submission.ts`)
 
 #### 4. Admin Accounts Setup
 
@@ -116,7 +95,7 @@ WHERE email = 'hello@supplement-brand.com';
 
 **Future:** Create `/admin/brands` page for account management
 
-## Usage Flow
+## Usage Flow (End-to-End)
 
 1. **Brand signs up:**
    - Go to `/brand/login`
@@ -124,51 +103,154 @@ WHERE email = 'hello@supplement-brand.com';
    - Click magic link in email
    - Lands on `/brand/dashboard` with `pending` status
 
-2. **Admin approves:**
-   - Manually set `status = 'active'` in database (or wait for admin UI)
+2. **Admin activates brand account:**
+   - Manually set `status = 'active'` in database:
+   ```sql
+   UPDATE brand_accounts 
+   SET status = 'active', manufacturer_id = 'existing-manufacturer-id'
+   WHERE email = 'hello@supplement-brand.com';
+   ```
+   - **Important:** Must link to a manufacturer for approval to work
 
-3. **Brand submits:**
+3. **Brand creates submission:**
    - Click "New submission" on dashboard
    - Fill 4-section form (Identity, Manufacturing, Clinical, Safety)
-   - Upload CoA PDFs
+   - Upload supporting documents (CoA PDFs, clinical studies)
    - Click "Submit for review"
+   - Status changes to `submitted`
 
-4. **Admin reviews:**
+4. **Admin reviews and approves:**
    - Go to `/admin/submissions`
-   - See pending submissions
-   - Click Approve/Reject/Request Revision
-   - Product rescore triggers automatically
+   - See pending submissions in queue
+   - Click submission to review details
+   - Click "Approve" button
+   - **Approval transaction executes:**
+     - Creates or updates product in catalog
+     - Replaces product ingredients from submission data
+     - Upserts certifications (NSF, USP, etc.)
+     - Triggers verified scoring (`score_mode='verified'`)
+     - Updates submission status to `approved`
+     - Logs audit trail to `submission_history`
 
 5. **Brand sees result:**
-   - Approved: Scorecard shows "Verified" tier
-   - Rejected: Email with reason
-   - Needs revision: Can edit and resubmit
+   - Dashboard shows "Approved" status
+   - Public scorecard at `/products/[slug]` shows "Verified" tier with updated score
+   - Can submit more products
+
+6. **Alternative flows:**
+   - **Reject:** Admin adds notes, brand sees rejection reason
+   - **Request revision:** Brand receives feedback, can edit and resubmit
+
+## What Happens on Approval
+
+The `approveSubmission()` transaction performs these steps atomically:
+
+1. ✅ Validates submission is in `reviewing` status
+2. ✅ Validates brand account is `active` and linked to manufacturer
+3. ✅ Creates new product OR updates existing product
+4. ✅ Deletes old ingredients, inserts new ones from submission
+5. ✅ Upserts certifications (NSF Sport, USP Verified, etc.)
+6. ✅ Loads fresh product data
+7. ✅ Runs `scoreProduct()` with verified mode
+8. ✅ Marks old verified score as `is_current=false`
+9. ✅ Inserts new verified score with `score_mode='verified'`
+10. ✅ Updates submission status to `approved` with timestamps
+11. ✅ Logs to `submission_history` (via trigger)
+
+**All-or-nothing:** If any step fails, the entire transaction rolls back.
 
 ## Testing Checklist
 
-- [ ] Create brand account via magic link
-- [ ] Manually activate account in database
-- [ ] Create new submission
-- [ ] Fill out all 4 form sections
-- [ ] Upload a PDF file (test CoA)
-- [ ] Submit for review
-- [ ] Approve in admin panel
-- [ ] Verify product score updated
-- [ ] Test reject flow
-- [ ] Test request-revision flow
+**Pre-flight:**
+- [ ] Apply migration: `20260421_submission_history.sql`
+- [ ] Create Storage bucket: `brand-submissions`
+- [ ] Apply Storage RLS policies from `supabase/storage/brand-submissions-setup.sql`
 
-## Notes
+**Happy path test:**
+- [ ] Create brand account via magic link at `/brand/login`
+- [ ] Manually activate account + link to manufacturer in DB
+- [ ] Create new submission at `/brand/submissions/new`
+- [ ] Fill all 4 form sections with real data
+- [ ] Upload a PDF file (test CoA or facts panel)
+- [ ] Save draft → verify can reload and continue
+- [ ] Submit for review → status changes to `submitted`
+- [ ] Go to `/admin/submissions` → see submission in queue
+- [ ] Click "Approve" → verify success response
+- [ ] Check `product_scores` table → should have new `score_mode='verified'` row
+- [ ] Check submission → status should be `approved`
+- [ ] Check `submission_history` → should have audit trail
+- [ ] Visit product scorecard → should show "Verified" tier
 
-- Bucket RLS policies ensure brands can only see their own files
-- File upload limited to 10MB, PDF/images only
-- Submission data stored as JSONB for flexibility
-- Admin review requires `VYVATA_ADMIN_SECRET` or admin session
-- First-time login auto-creates `pending` brand account
+**Rejection flow:**
+- [ ] Submit another test submission
+- [ ] Admin clicks "Reject" with notes
+- [ ] Brand sees rejection reason in dashboard
+- [ ] Verify nothing changed in `products` or `product_scores`
+
+**Revision flow:**
+- [ ] Submit third test submission
+- [ ] Admin clicks "Request Revision" with feedback
+- [ ] Brand sees status `needs_revision` with reviewer notes
+- [ ] Brand edits submission and resubmits
+- [ ] Admin approves → verify score updates
+
+**Security tests:**
+- [ ] Try approving without admin session → 401
+- [ ] Try approving submission with `pending` brand account → error
+- [ ] Try approving submission not in `reviewing` status → error
+- [ ] Brand A tries to access Brand B's submission → 403
+- [ ] Brand tries to upload to another brand's folder → blocked by RLS
+
+## Current Limitations & Future Work
+
+**Missing (from full sprint spec):**
+- Public `/submit` landing page (brands need direct link to `/brand/login`)
+- Email verification for new brands (currently auto-creates on first magic link)
+- Email notifications on status changes (brands check dashboard for updates)
+- Dynamic ingredient editor (placeholder shows "coming soon")
+- Cross-site CTAs (methodology page doesn't link to submission flow)
+- Legal attestation checkbox (field exists in schema but not UI)
+- 5th form step for supplement facts panel (current form has 4 sections)
+
+**What works today:**
+- ✅ Brand auth via magic link
+- ✅ Multi-step submission form
+- ✅ File upload infrastructure (needs bucket created)
+- ✅ Admin review queue
+- ✅ **Full approval transaction** (creates/updates product, ingredients, certs, scores)
+- ✅ Verified scoring integration
+- ✅ Audit trail
+- ✅ State machine enforcement
+- ✅ RLS security policies
 
 ## Next Steps
 
-1. Setup Storage bucket (5 min)
-2. Add rescore trigger (10 min)
-3. Create email templates (30 min)
-4. Test full flow (30 min)
-5. Create admin brand management page (optional, 2 hrs)
+**Immediate (to launch):**
+1. Apply `submission_history` migration
+2. Create Storage bucket with RLS policies
+3. Test end-to-end approval flow
+4. Activate first real brand account
+
+**Short-term (P1):**
+1. Fix ingredient editor (dynamic add/remove rows)
+2. Add legal attestation checkbox before submit
+3. Email templates for approved/rejected/needs-revision
+
+**Medium-term (P2):**
+1. Public `/submit` landing page
+2. Cross-site CTAs (methodology page, unscored scorecards)
+3. Brand outreach playbook for Craig
+4. Admin brand management UI
+
+**Long-term (out of scope for MVP):**
+1. Multi-user brand accounts
+2. Bulk CSV upload
+3. Automated OCR for supplement facts panels
+4. Shopify Collective integration
+
+## Support
+
+- Database issues: Check Supabase logs and RLS policies
+- Upload issues: Verify bucket exists and RLS policies applied
+- Approval failures: Check server logs for transaction error details
+- Score not updating: Verify manufacturer_id is set on brand_account
