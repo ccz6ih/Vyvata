@@ -80,9 +80,23 @@ export default function AdminProductsClient() {
 
   const scoreOne = async (id: string) => {
     setScoringId(id);
+    setSyncResult(null);
     try {
       const res = await fetch(`/api/admin/products/${id}/score`, { method: "POST" });
-      if (!res.ok) throw new Error("Scoring failed");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Scoring failed");
+
+      if (data.rescored === 0 && data.skipped === 1) {
+        setSyncResult("No change — score identical to current row.");
+      } else if (data.tierChange) {
+        const tc = data.tierChange as { previousTier: string | null; newTier: string; previousScore: number | null; newScore: number };
+        const emails = data.notifications?.emailsSent ?? 0;
+        setSyncResult(
+          `Tier: ${tc.previousTier ?? "—"} → ${tc.newTier.toUpperCase()} (${tc.previousScore ?? "—"} → ${tc.newScore})${emails > 0 ? ` · ${emails} practitioner email${emails === 1 ? "" : "s"} sent` : ""}`
+        );
+      } else {
+        setSyncResult("Rescored. Score changed but tier held.");
+      }
       await fetchProducts();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Scoring failed");

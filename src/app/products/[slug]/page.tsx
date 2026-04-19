@@ -147,26 +147,38 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const product = await loadProduct(slug);
   if (!product) return { title: "Product not found · Vyvata" };
   const score = product.product_scores[0];
-  const ogPath = `/api/og/product?slug=${encodeURIComponent(product.slug)}`;
-  const title = `${product.brand} ${product.name} · Vyvata`;
+
+  // LinkedIn's OG scraper is unreliable with metadataBase-relative URLs, so
+  // emit absolute URLs explicitly. NEXT_PUBLIC_APP_URL is required in prod;
+  // localhost is fine for dev previews.
+  const base = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const canonicalUrl = `${base}/products/${product.slug}`;
+  const ogUrl = `${base}/api/og/product?slug=${encodeURIComponent(product.slug)}`;
+
+  const title = score
+    ? `${product.brand} ${product.name} — Vyvata ${score.integrity_score}/100 (${score.tier})`
+    : `${product.brand} ${product.name} · Vyvata`;
   const description = score
     ? `Vyvata integrity score ${score.integrity_score}/100 (${score.tier}). Evidence-graded analysis of ${product.brand} ${product.name}.`
     : `Vyvata-analysed product: ${product.brand} ${product.name}.`;
+
   return {
     title,
     description,
+    alternates: { canonical: canonicalUrl },
     openGraph: {
       title,
       description,
-      type: "website",
+      type: "article",
       siteName: "Vyvata",
-      images: [{ url: ogPath, width: 1200, height: 630, alt: title }],
+      url: canonicalUrl,
+      images: [{ url: ogUrl, width: 1200, height: 630, alt: title }],
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: [ogPath],
+      images: [ogUrl],
     },
   };
 }
