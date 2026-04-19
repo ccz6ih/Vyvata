@@ -18,8 +18,8 @@ const supabase = createClient(
 );
 
 const CONFIG = {
-  productsPerBatch: 20, // Small batch to complete quickly (~25-30 seconds)
-  maxSearchResults: 100, // Look through more results to find non-duplicates
+  productsPerBatch: 50, // Larger batch to import faster (was 20)
+  maxSearchResults: 200, // Look through more results to find non-duplicates (was 100)
   categories: [
     'magnesium', 'vitamin-d', 'omega-3', 'b-complex', 'probiotic', 'zinc', 'vitamin-c',
     'curcumin', 'coq10', 'multivitamin', 'collagen', 'ashwagandha', 'iron',
