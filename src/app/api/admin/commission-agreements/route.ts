@@ -82,7 +82,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, id: (agreement as { id: string }).id });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return NextResponse.json({ error: "Invalid request data", details: err.errors }, { status: 400 });
+      // zod v4 renamed .errors → .issues
+      return NextResponse.json({ error: "Invalid request data", details: err.issues }, { status: 400 });
     }
     console.error("[POST /api/admin/commission-agreements] unexpected error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

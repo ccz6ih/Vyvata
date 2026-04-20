@@ -373,7 +373,13 @@ function ProductIdentitySection({
       </FormField>
       
       <IngredientEditor
-        ingredients={data.ingredients as Ingredient[]}
+        // Shape mismatch: the Zod schema stores ingredient.amount as a
+        // free-text string ("500mg"), IngredientEditor wants (number |
+        // null) + unit. Tracked in
+        // approve-submission.ts::parseDose — cast through unknown for
+        // now, plumb the editor-native shape through the schema next
+        // iteration to keep user input consistent end-to-end.
+        ingredients={(data.ingredients ?? []) as unknown as Ingredient[]}
         onChange={(ingredients) => onChange("ingredients", ingredients)}
         readOnly={readOnly}
         minIngredients={1}

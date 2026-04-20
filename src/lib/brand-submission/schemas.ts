@@ -177,6 +177,6 @@ export function emptySubmissionData(): SubmissionData {
     clinical_evidence: {
       clinical_study_urls: [],
     },
-    safety_transparency: {},
+    safety_transparency: { legal_attestation: false },
   };
 }
