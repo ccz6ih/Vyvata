@@ -6,7 +6,7 @@ import {
   CheckCircle2, XCircle, Clock, ChevronDown, ChevronUp,
   RefreshCw, Users, ClipboardList, ShieldCheck, AlertTriangle,
   ExternalLink, Mail, Building2, Stethoscope, Globe, User, LogOut,
-  BarChart3, Box, AlertTriangle as AlertIcon,
+  BarChart3, Box, AlertTriangle as AlertIcon, DollarSign, Activity,
 } from "lucide-react";
 import Link from "next/link";
 import { VyvataLogo } from "@/components/VyvataLogo";
@@ -506,12 +506,28 @@ export default function AdminClient() {
             Compliance
           </Link>
           <Link
+            href="/admin/commission-agreements"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+            style={{ background: "rgba(20,184,166,0.08)", border: "1px solid rgba(20,184,166,0.2)", color: "#14B8A6" }}
+          >
+            <DollarSign size={12} />
+            Dispensary
+          </Link>
+          <Link
             href="/admin/analytics"
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
             style={{ background: "rgba(20,184,166,0.08)", border: "1px solid rgba(20,184,166,0.2)", color: "#14B8A6" }}
           >
             <BarChart3 size={12} />
             Analytics
+          </Link>
+          <Link
+            href="/admin/observability"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+            style={{ background: "rgba(20,184,166,0.08)", border: "1px solid rgba(20,184,166,0.2)", color: "#14B8A6" }}
+          >
+            <Activity size={12} />
+            Observability
           </Link>
           <button
             onClick={fetchData}

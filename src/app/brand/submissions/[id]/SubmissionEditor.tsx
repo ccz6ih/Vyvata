@@ -9,6 +9,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { VyvataLogo } from "@/components/VyvataLogo";
+import { IngredientEditor } from "@/components/IngredientEditor";
+import type { Ingredient } from "@/components/IngredientEditor";
 import {
   ArrowLeft,
   ArrowRight,
@@ -98,6 +100,13 @@ export default function SubmissionEditor({ submission }: SubmissionEditorProps) 
   }
 
   async function handleSubmit() {
+    // Validate legal attestation
+    if (!formData.safety_transparency.legal_attestation) {
+      setError("Please check the legal attestation box before submitting.");
+      setCurrentStep(4); // Go to Safety section
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
     try {
@@ -362,10 +371,14 @@ function ProductIdentitySection({
           style={{ borderColor: "rgba(201,214,223,0.12)" }}
         />
       </FormField>
-      {/* TODO: Ingredient list editor */}
-      <p className="text-xs" style={{ color: "#7A90A8" }}>
-        Ingredient editor coming soon. For now, save and continue to other sections.
-      </p>
+      
+      <IngredientEditor
+        ingredients={data.ingredients as Ingredient[]}
+        onChange={(ingredients) => onChange("ingredients", ingredients)}
+        readOnly={readOnly}
+        minIngredients={1}
+        maxIngredients={50}
+      />
     </div>
   );
 }
@@ -502,6 +515,33 @@ function SafetySection({
           style={{ borderColor: "rgba(201,214,223,0.12)" }}
         />
       </FormField>
+      
+      {/* Legal Attestation */}
+      <div
+        className="p-4 rounded-lg"
+        style={{
+          background: "rgba(20,184,166,0.05)",
+          border: "1px solid rgba(20,184,166,0.2)",
+        }}
+      >
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={data.legal_attestation ?? false}
+            onChange={(e) => onChange("legal_attestation", e.target.checked)}
+            disabled={readOnly}
+            className="mt-1 accent-teal-500"
+          />
+          <div className="flex-1">
+            <p className="text-sm font-bold mb-1" style={{ color: "#14B8A6" }}>
+              Legal Attestation *
+            </p>
+            <p className="text-xs" style={{ color: "#C9D6DF" }}>
+              I attest that all information provided in this submission is accurate and complete to the best of my knowledge. I understand that false or misleading information may result in disqualification from the Vyvata platform and potential legal consequences.
+            </p>
+          </div>
+        </label>
+      </div>
     </div>
   );
 }

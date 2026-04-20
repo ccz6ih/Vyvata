@@ -104,6 +104,9 @@ export const SafetyTransparencySchema = z.object({
   
   // Additional transparency notes
   transparency_notes: z.string().max(1000).optional(),
+  
+  // Legal attestation (required for submission)
+  legal_attestation: z.boolean().default(false),
 });
 
 // ══════════════════════════════════════════════════════════════
