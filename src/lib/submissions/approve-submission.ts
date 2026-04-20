@@ -168,16 +168,39 @@ export async function approveSubmission(
     throw new Error(`Failed to delete old ingredients: ${deleteIngError.message}`);
   }
 
-  // Insert new ingredients from submission
-  const ingredientsToInsert = data.product_identity.ingredients.map((ing) => ({
-    product_id: productId,
-    ingredient_name: ing.name,
-    dose: ing.dose || 0,
-    unit: ing.unit || "mg",
-    form: ing.form || null,
-    bioavailability: ing.bioavailability || null,
-    is_proprietary_blend: ing.is_proprietary_blend || false,
-  }));
+  // Insert new ingredients from submission.
+  // The schema stores `amount` as a user-entered string (e.g. "500mg",
+  // "1000 IU") with an optional separate `unit` field. The db expects a
+  // numeric `dose` + `unit`, so parse amount into those when we can.
+  const parseDose = (amount: string | undefined, unit: string | undefined) => {
+    if (!amount && !unit) return { dose: 0, unit: "mg" };
+    const text = (amount ?? "").trim();
+    const match = text.match(/^(\d+(?:\.\d+)?)\s*([a-zA-Z%]*)$/);
+    if (match) {
+      const parsed = parseFloat(match[1]);
+      return {
+        dose: Number.isFinite(parsed) ? parsed : 0,
+        unit: (unit ?? match[2] ?? "mg").toLowerCase() || "mg",
+      };
+    }
+    return { dose: 0, unit: (unit ?? "mg").toLowerCase() };
+  };
+
+  const ingredientsToInsert = data.product_identity.ingredients.map((ing) => {
+    const { dose, unit } = parseDose(ing.amount, ing.unit);
+    return {
+      product_id: productId,
+      ingredient_name: ing.name,
+      dose,
+      unit,
+      form: ing.bioavailability_form ?? null,
+      // Bioavailability qualitative tier is not collected in the form;
+      // leave null and let the scorer's default medium fallback apply.
+      bioavailability: null,
+      is_proprietary_blend: false,
+      daily_value_percentage: ing.daily_value_percent ?? null,
+    };
+  });
 
   const { error: insertIngError } = await supabase
     .from("product_ingredients")
@@ -191,33 +214,37 @@ export async function approveSubmission(
   // Step 4: Upsert certifications from submission
   // ─────────────────────────────────────────────────────────────────
   
-  const certTypes = [
-    "nsf_sport",
-    "nsf_gmp", 
-    "usp_verified",
-    "informed_sport",
-    "informed_choice",
-    "cgmp_certified",
-    "third_party_tested",
-    "organic_usda",
-    "non_gmo_verified",
-    "vegan_certified",
-    "gluten_free_certified",
-    "kosher_certified",
-    "halal_certified",
-  ] as const;
+  // Map from form booleans (schemas.ts ManufacturingEvidenceSchema) to the
+  // cert types the certifications table uses. Keeping this explicit so the
+  // mapping is reviewable in one place if either side adds new types.
+  type MfgEvidence = NonNullable<typeof data.manufacturing_evidence>;
+  const CERT_FIELD_TO_TYPE: Array<[keyof MfgEvidence, string]> = [
+    ["nsf_sport", "nsf_sport"],
+    ["usp_verified", "usp_verified"],
+    ["informed_sport", "informed_sport"],
+    ["informed_choice", "informed_choice"],
+    ["bscg_certified", "bscg_certified"],
+    ["non_gmo", "non_gmo"],
+    ["organic_usda", "organic_usda"],
+    ["vegan", "vegan"],
+    ["gluten_free", "gluten_free"],
+    ["kosher", "kosher"],
+    ["halal", "halal"],
+  ];
 
   const mfgEvidence = data.manufacturing_evidence;
-  const certsToUpsert = certTypes
-    .filter((type) => mfgEvidence?.[type] === true)
-    .map((type) => ({
-      product_id: productId,
-      type,
-      verified: true,
-      verified_at: new Date().toISOString(),
-      // Extract verification details from file_references if present
-      // (simplified - full implementation would parse uploaded CoAs)
-    }));
+  const certsToUpsert = mfgEvidence
+    ? CERT_FIELD_TO_TYPE
+        .filter(([field]) => mfgEvidence[field] === true)
+        .map(([, type]) => ({
+          product_id: productId,
+          type,
+          verified: true,
+          verified_at: new Date().toISOString(),
+          // Detailed verification evidence (CoAs, cert numbers) would come
+          // from file_references in a full implementation.
+        }))
+    : [];
 
   if (certsToUpsert.length > 0) {
     const { error: certError } = await supabase
@@ -340,6 +367,31 @@ export async function approveSubmission(
 
   if (updateSubError) {
     throw new Error(`Failed to update submission status: ${updateSubError.message}`);
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // Step 9: Check dispensary eligibility (Phase 1 - Practitioner Dispensary)
+  // ─────────────────────────────────────────────────────────────────
+  // After writing the verified score, check if this product qualifies for
+  // the practitioner dispensary channel. A product is eligible if:
+  //   - Verified score >= 75
+  //   - Manufacturer has active commission agreement with channel enabled
+  //   - No active critical/high compliance flags
+  
+  try {
+    const { checkAndUpdateDispensaryEligibility } = await import("@/lib/dispensary/check-eligibility");
+    const eligibility = await checkAndUpdateDispensaryEligibility(productId);
+    
+    // Log the result for admin visibility
+    if (eligibility.isEligible) {
+      console.log(`[approveSubmission] Product ${productId} is now ELIGIBLE for practitioner dispensary`);
+    } else {
+      console.log(`[approveSubmission] Product ${productId} NOT eligible for dispensary: ${eligibility.failReason}`);
+    }
+  } catch (eligibilityError) {
+    // Non-fatal: approval succeeded, but eligibility check failed
+    // Log the error but don't fail the entire transaction
+    console.error("[approveSubmission] Dispensary eligibility check failed:", eligibilityError);
   }
 
   // ─────────────────────────────────────────────────────────────────

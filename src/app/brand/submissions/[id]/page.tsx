@@ -36,5 +36,14 @@ export default async function SubmissionDetailPage(props: PageProps) {
     redirect("/brand/dashboard?error=not_found");
   }
 
-  return <SubmissionEditor submission={submission} />;
+  // PostgREST returns joined relations as arrays even when the relation
+  // is one-to-one. SubmissionEditor expects a single `product` object or
+  // null, so flatten here before passing down.
+  type RelatedProduct = { id: string; slug: string; brand: string; name: string; category: string };
+  const rawProduct = (submission as { product?: RelatedProduct | RelatedProduct[] | null }).product;
+  const product: RelatedProduct | null = Array.isArray(rawProduct)
+    ? rawProduct[0] ?? null
+    : rawProduct ?? null;
+
+  return <SubmissionEditor submission={{ ...submission, product }} />;
 }
