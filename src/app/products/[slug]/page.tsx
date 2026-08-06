@@ -913,8 +913,6 @@ function DimensionBar({
           style={{ 
             width: `${fillWidth}%`, 
             background: color,
-            minWidth: v > 0 ? '2%' : '0%',
-            opacity: 0.9,
           }}
         />
       </div>
