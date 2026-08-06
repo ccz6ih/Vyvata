@@ -905,8 +905,8 @@ function DimensionBar({
         </span>
       </div>
       <div 
-        className="flex-1 h-2 rounded-full overflow-hidden" 
-        style={{ background: "rgba(201,214,223,0.06)" }}
+        className="flex-1 h-2.5 rounded-full overflow-hidden" 
+        style={{ background: "rgba(201,214,223,0.12)" }}
       >
         <div
           className="h-full rounded-full transition-all duration-500 ease-out"
@@ -914,6 +914,7 @@ function DimensionBar({
             width: `${fillWidth}%`, 
             background: color,
             minWidth: v > 0 ? '2%' : '0%',
+            opacity: 0.9,
           }}
         />
       </div>
