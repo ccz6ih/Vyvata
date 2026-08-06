@@ -23,6 +23,30 @@ export interface ProductRow {
   brand: string;
   name: string;
   manufacturer_id: string | null;
+  category?: "supplement" | "wearable" | "diagnostic" | "sleep";
+}
+
+export interface CategoryMetadata {
+  // Wearable-specific
+  sensor_type?: string;
+  fda_clearance_number?: string;
+  battery_life_hours?: number;
+  data_export_format?: string;
+  claimed_accuracy?: string;
+  // Diagnostic-specific
+  biomarkers?: string[];
+  clia_number?: string;
+  cap_accredited?: boolean;
+  sample_collection_method?: string;
+  lab_name?: string;
+  turnaround_time_days?: number;
+  // Sleep-specific
+  product_type?: string;
+  material_composition?: Record<string, number>;
+  oeko_tex_certified?: boolean;
+  certipur_us_certified?: boolean;
+  fire_safety_standard?: string;
+  therapeutic_parameter?: string;
 }
 
 export interface ProductIngredientRow {
@@ -58,6 +82,7 @@ export type Tier = "rejected" | "standard" | "verified" | "elite";
 export interface EvidenceBreakdown {
   perIngredient: Array<{ name: string; tier: string; score: number }>;
   totalCitations: number;
+  categoryNote?: string; // For non-supplement categories
 }
 export interface SafetyBreakdown {
   interactions: string[];
@@ -70,6 +95,7 @@ export interface FormulationBreakdown {
   doseAccuracy: number;
   transparency: number;
   perIngredient: Array<{ name: string; bioavailability: string | null; form: string | null; doseOk: boolean | null }>;
+  categoryNote?: string; // For non-supplement categories
 }
 export interface ManufacturingBreakdown {
   gmp: boolean;
@@ -312,6 +338,257 @@ function certificationBonus(certs: CertificationRow[]): number {
   return Math.min(MAX_CERT_BONUS, bonus);
 }
 
+// ── Category-specific scorers ────────────────────────────────────────────────
+
+/**
+ * Score wearable devices based on sensor quality, FDA clearance, data accessibility
+ */
+function scoreWearable(meta: CategoryMetadata | undefined, complianceFlags: ComplianceFlagRow[]): {
+  evidence: { score: number; breakdown: EvidenceBreakdown };
+  formulation: { score: number; breakdown: FormulationBreakdown };
+  transparency: { score: number; breakdown: TransparencyBreakdown };
+} {
+  let evidenceScore = 50; // baseline
+  let formulationScore = 50; // sensor quality
+  let transparencyScore = 50; // data accessibility
+
+  // Evidence dimension: sensor type and claimed accuracy
+  if (meta?.sensor_type) {
+    const premiumSensors = ['cgm', 'ecg', 'ppg', 'optical_hr'];
+    if (premiumSensors.some(s => meta.sensor_type?.toLowerCase().includes(s))) {
+      evidenceScore += 25;
+    }
+  }
+  if (meta?.claimed_accuracy) {
+    evidenceScore += 15; // Points for providing accuracy claims
+  }
+  if (meta?.fda_clearance_number) {
+    evidenceScore += 10; // FDA clearance is a strong signal
+  }
+
+  // Formulation dimension: battery life and sensor reliability
+  if (meta?.battery_life_hours) {
+    if (meta.battery_life_hours >= 168) formulationScore += 30; // 1 week+
+    else if (meta.battery_life_hours >= 24) formulationScore += 20; // 1 day+
+    else formulationScore += 10; // Less than 1 day
+  }
+  if (meta?.fda_clearance_number) {
+    formulationScore += 20; // FDA clearance implies rigorous testing
+  }
+
+  // Transparency dimension: data export and openness
+  if (meta?.data_export_format) {
+    if (meta.data_export_format.includes('api')) transparencyScore += 30;
+    else if (meta.data_export_format.includes('csv') || meta.data_export_format.includes('json')) transparencyScore += 20;
+    else if (meta.data_export_format !== 'none') transparencyScore += 10;
+  }
+  if (meta?.claimed_accuracy) {
+    transparencyScore += 20; // Transparency about accuracy
+  }
+
+  return {
+    evidence: {
+      score: Math.min(100, evidenceScore),
+      breakdown: {
+        perIngredient: [],
+        totalCitations: 0,
+        categoryNote: `Wearable scoring based on sensor type, FDA clearance, and accuracy claims`,
+      },
+    },
+    formulation: {
+      score: Math.min(100, formulationScore),
+      breakdown: {
+        bioavailability: 0,
+        doseAccuracy: 0,
+        transparency: 0,
+        perIngredient: [],
+        categoryNote: `Wearable quality based on battery life and FDA clearance`,
+      },
+    },
+    transparency: {
+      score: Math.min(100, transparencyScore),
+      breakdown: {
+        proprietaryBlend: false,
+        verifiedCertifications: meta?.fda_clearance_number ? ['FDA clearance'] : [],
+      },
+    },
+  };
+}
+
+/**
+ * Score diagnostic tests based on biomarkers, lab certifications, turnaround time
+ */
+function scoreDiagnostic(meta: CategoryMetadata | undefined): {
+  evidence: { score: number; breakdown: EvidenceBreakdown };
+  formulation: { score: number; breakdown: FormulationBreakdown };
+  manufacturing: { score: number; breakdown: ManufacturingBreakdown };
+  transparency: { score: number; breakdown: TransparencyBreakdown };
+} {
+  let evidenceScore = 40; // baseline
+  let formulationScore = 50; // test quality
+  let manufacturingScore = 40; // lab certifications
+  let transparencyScore = 60; // disclosure
+
+  // Evidence dimension: number and quality of biomarkers
+  if (meta?.biomarkers && meta.biomarkers.length > 0) {
+    evidenceScore += Math.min(40, meta.biomarkers.length * 5); // Up to 40 points for comprehensive panels
+    if (meta.biomarkers.length >= 10) evidenceScore += 10; // Bonus for comprehensive testing
+  }
+
+  // Formulation dimension: sample collection method (less invasive = better UX, higher score)
+  if (meta?.sample_collection_method) {
+    const method = meta.sample_collection_method.toLowerCase();
+    if (method.includes('finger_prick') || method.includes('saliva')) formulationScore += 25;
+    else if (method.includes('urine') || method.includes('stool')) formulationScore += 20;
+    else if (method.includes('venous')) formulationScore += 15; // More invasive but often more accurate
+  }
+  if (meta?.turnaround_time_days) {
+    if (meta.turnaround_time_days <= 3) formulationScore += 20;
+    else if (meta.turnaround_time_days <= 7) formulationScore += 15;
+    else if (meta.turnaround_time_days <= 14) formulationScore += 10;
+  }
+
+  // Manufacturing dimension: lab certifications (CLIA, CAP)
+  if (meta?.clia_number) manufacturingScore += 30; // CLIA is required for clinical labs
+  if (meta?.cap_accredited) manufacturingScore += 30; // CAP is gold standard
+  if (meta?.lab_name) manufacturingScore += 10; // Transparency about lab used
+
+  // Transparency dimension: disclosure of methodology
+  if (meta?.lab_name) transparencyScore += 20;
+  if (meta?.sample_collection_method) transparencyScore += 10;
+  if (meta?.turnaround_time_days) transparencyScore += 10;
+
+  return {
+    evidence: {
+      score: Math.min(100, evidenceScore),
+      breakdown: {
+        perIngredient: [],
+        totalCitations: 0,
+        categoryNote: `Diagnostic scoring based on ${meta?.biomarkers?.length || 0} biomarkers tested`,
+      },
+    },
+    formulation: {
+      score: Math.min(100, formulationScore),
+      breakdown: {
+        bioavailability: 0,
+        doseAccuracy: 0,
+        transparency: 0,
+        perIngredient: [],
+        categoryNote: `Test quality based on collection method and turnaround time`,
+      },
+    },
+    manufacturing: {
+      score: Math.min(100, manufacturingScore),
+      breakdown: {
+        gmp: false,
+        fdaRegistered: Boolean(meta?.clia_number),
+        thirdPartyTested: Boolean(meta?.cap_accredited),
+      },
+    },
+    transparency: {
+      score: Math.min(100, transparencyScore),
+      breakdown: {
+        proprietaryBlend: false,
+        verifiedCertifications: [
+          meta?.clia_number ? 'CLIA certified' : null,
+          meta?.cap_accredited ? 'CAP accredited' : null,
+        ].filter(Boolean) as string[],
+      },
+    },
+  };
+}
+
+/**
+ * Score sleep products based on materials, certifications, safety standards
+ */
+function scoreSleep(meta: CategoryMetadata | undefined): {
+  evidence: { score: number; breakdown: EvidenceBreakdown };
+  formulation: { score: number; breakdown: FormulationBreakdown };
+  manufacturing: { score: number; breakdown: ManufacturingBreakdown };
+  transparency: { score: number; breakdown: TransparencyBreakdown };
+} {
+  let evidenceScore = 50; // baseline
+  let formulationScore = 50; // material quality
+  let manufacturingScore = 50; // certifications
+  let transparencyScore = 60; // material disclosure
+
+  // Evidence dimension: product type and therapeutic parameters
+  if (meta?.product_type) {
+    const researchBacked = ['mattress', 'pillow', 'weighted_blanket', 'light', 'sound_machine'];
+    if (researchBacked.some(t => meta.product_type?.toLowerCase().includes(t))) {
+      evidenceScore += 20;
+    }
+  }
+  if (meta?.therapeutic_parameter) {
+    evidenceScore += 20; // Specific therapeutic claims with parameters
+  }
+
+  // Formulation dimension: material composition and quality certifications
+  if (meta?.material_composition && Object.keys(meta.material_composition).length > 0) {
+    formulationScore += 20; // Disclosure of materials
+    // Natural materials bonus
+    const naturalMaterials = ['cotton', 'wool', 'latex', 'bamboo'];
+    const hasNatural = Object.keys(meta.material_composition).some(m =>
+      naturalMaterials.some(n => m.toLowerCase().includes(n))
+    );
+    if (hasNatural) formulationScore += 15;
+  }
+  if (meta?.oeko_tex_certified) formulationScore += 15;
+  if (meta?.certipur_us_certified) formulationScore += 10;
+
+  // Manufacturing dimension: safety and quality certifications
+  if (meta?.fire_safety_standard) manufacturingScore += 25;
+  if (meta?.oeko_tex_certified) manufacturingScore += 15;
+  if (meta?.certipur_us_certified) manufacturingScore += 10;
+
+  // Transparency dimension: material disclosure and certifications
+  if (meta?.material_composition && Object.keys(meta.material_composition).length > 0) {
+    transparencyScore += 25;
+  }
+  if (meta?.fire_safety_standard) transparencyScore += 10;
+  if (meta?.therapeutic_parameter) transparencyScore += 5;
+
+  return {
+    evidence: {
+      score: Math.min(100, evidenceScore),
+      breakdown: {
+        perIngredient: [],
+        totalCitations: 0,
+        categoryNote: `Sleep product scoring based on product type and therapeutic parameters`,
+      },
+    },
+    formulation: {
+      score: Math.min(100, formulationScore),
+      breakdown: {
+        bioavailability: 0,
+        doseAccuracy: 0,
+        transparency: 0,
+        perIngredient: [],
+        categoryNote: `Material quality based on composition and certifications`,
+      },
+    },
+    manufacturing: {
+      score: Math.min(100, manufacturingScore),
+      breakdown: {
+        gmp: Boolean(meta?.oeko_tex_certified || meta?.certipur_us_certified),
+        fdaRegistered: false,
+        thirdPartyTested: Boolean(meta?.fire_safety_standard),
+      },
+    },
+    transparency: {
+      score: Math.min(100, transparencyScore),
+      breakdown: {
+        proprietaryBlend: false,
+        verifiedCertifications: [
+          meta?.oeko_tex_certified ? 'Oeko-Tex' : null,
+          meta?.certipur_us_certified ? 'CertiPUR-US' : null,
+          meta?.fire_safety_standard ? 'Fire Safety Certified' : null,
+        ].filter(Boolean) as string[],
+      },
+    },
+  };
+}
+
 function tierFor(score: number): Tier {
   if (score >= 90) return "elite";
   if (score >= 75) return "verified";
@@ -327,6 +604,7 @@ export interface ScoreInputs {
   certifications: CertificationRow[];
   manufacturer: ManufacturerRow | null;
   complianceFlags?: ComplianceFlagRow[];
+  categoryMetadata?: CategoryMetadata;
   /**
    * Present when an approved brand submission has unlocked verified mode.
    * Shape is deliberately open-ended for now — Phase 3 will formalize it.
@@ -346,11 +624,114 @@ export interface DualScoreResult {
  * cert bonus is public-data-derived and applies identically to both modes.
  */
 export function scoreProductDual(input: ScoreInputs): DualScoreResult {
-  const evidence = scoreEvidence(input.ingredients);
-  const safety = scoreSafety(input.ingredients, input.complianceFlags ?? []);
-  const formulation = scoreFormulation(input.ingredients);
-  const manufacturing = scoreManufacturing(input.manufacturer);
-  const transparency = scoreTransparency(input.ingredients, input.certifications);
+  const category = input.product.category || "supplement";
+  
+  // Initialize dimension scores based on category
+  let evidence: { score: number; breakdown: EvidenceBreakdown };
+  let safety: { score: number; breakdown: SafetyBreakdown };
+  let formulation: { score: number; breakdown: FormulationBreakdown };
+  let manufacturing: { score: number; breakdown: ManufacturingBreakdown };
+  let transparency: { score: number; breakdown: TransparencyBreakdown };
+
+  if (category === "wearable") {
+    // Use wearable-specific scoring
+    const wearableScores = scoreWearable(input.categoryMetadata, input.complianceFlags ?? []);
+    evidence = wearableScores.evidence;
+    formulation = wearableScores.formulation;
+    transparency = wearableScores.transparency;
+    
+    // Safety: same as supplement logic (compliance flags only for wearables)
+    const compliancePenalty = (input.complianceFlags ?? []).reduce((sum, f) => {
+      const PENALTY_BY_SOURCE: Record<ComplianceFlagRow["source"], number> = {
+        openfda_recall: 15, fda_warning_letter: 25, import_alert: 15, caers: 3,
+      };
+      const SEVERITY_MULTIPLIER: Record<ComplianceFlagRow["severity"], number> = {
+        critical: 1.5, serious: 1.2, moderate: 1.0, minor: 0.6,
+      };
+      return sum + (PENALTY_BY_SOURCE[f.source] ?? 0) * (SEVERITY_MULTIPLIER[f.severity] ?? 1);
+    }, 0);
+    safety = {
+      score: Math.max(0, 100 - Math.min(80, Math.round(compliancePenalty))),
+      breakdown: {
+        interactions: [],
+        warningCount: 0,
+        compliance_penalty: Math.min(80, Math.round(compliancePenalty)),
+        compliance_flags: (input.complianceFlags ?? []).map(f => ({
+          source: f.source, severity: f.severity, issued_date: f.issued_date,
+        })),
+      },
+    };
+    manufacturing = scoreManufacturing(input.manufacturer);
+    
+  } else if (category === "diagnostic") {
+    // Use diagnostic-specific scoring
+    const diagnosticScores = scoreDiagnostic(input.categoryMetadata);
+    evidence = diagnosticScores.evidence;
+    formulation = diagnosticScores.formulation;
+    manufacturing = diagnosticScores.manufacturing;
+    transparency = diagnosticScores.transparency;
+    
+    // Safety: compliance flags only
+    const compliancePenalty = (input.complianceFlags ?? []).reduce((sum, f) => {
+      const PENALTY_BY_SOURCE: Record<ComplianceFlagRow["source"], number> = {
+        openfda_recall: 15, fda_warning_letter: 25, import_alert: 15, caers: 3,
+      };
+      const SEVERITY_MULTIPLIER: Record<ComplianceFlagRow["severity"], number> = {
+        critical: 1.5, serious: 1.2, moderate: 1.0, minor: 0.6,
+      };
+      return sum + (PENALTY_BY_SOURCE[f.source] ?? 0) * (SEVERITY_MULTIPLIER[f.severity] ?? 1);
+    }, 0);
+    safety = {
+      score: Math.max(0, 100 - Math.min(80, Math.round(compliancePenalty))),
+      breakdown: {
+        interactions: [],
+        warningCount: 0,
+        compliance_penalty: Math.min(80, Math.round(compliancePenalty)),
+        compliance_flags: (input.complianceFlags ?? []).map(f => ({
+          source: f.source, severity: f.severity, issued_date: f.issued_date,
+        })),
+      },
+    };
+    
+  } else if (category === "sleep") {
+    // Use sleep-specific scoring
+    const sleepScores = scoreSleep(input.categoryMetadata);
+    evidence = sleepScores.evidence;
+    formulation = sleepScores.formulation;
+    manufacturing = sleepScores.manufacturing;
+    transparency = sleepScores.transparency;
+    
+    // Safety: compliance flags only
+    const compliancePenalty = (input.complianceFlags ?? []).reduce((sum, f) => {
+      const PENALTY_BY_SOURCE: Record<ComplianceFlagRow["source"], number> = {
+        openfda_recall: 15, fda_warning_letter: 25, import_alert: 15, caers: 3,
+      };
+      const SEVERITY_MULTIPLIER: Record<ComplianceFlagRow["severity"], number> = {
+        critical: 1.5, serious: 1.2, moderate: 1.0, minor: 0.6,
+      };
+      return sum + (PENALTY_BY_SOURCE[f.source] ?? 0) * (SEVERITY_MULTIPLIER[f.severity] ?? 1);
+    }, 0);
+    safety = {
+      score: Math.max(0, 100 - Math.min(80, Math.round(compliancePenalty))),
+      breakdown: {
+        interactions: [],
+        warningCount: 0,
+        compliance_penalty: Math.min(80, Math.round(compliancePenalty)),
+        compliance_flags: (input.complianceFlags ?? []).map(f => ({
+          source: f.source, severity: f.severity, issued_date: f.issued_date,
+        })),
+      },
+    };
+    
+  } else {
+    // Default to supplement scoring
+    evidence = scoreEvidence(input.ingredients);
+    safety = scoreSafety(input.ingredients, input.complianceFlags ?? []);
+    formulation = scoreFormulation(input.ingredients);
+    manufacturing = scoreManufacturing(input.manufacturer);
+    transparency = scoreTransparency(input.ingredients, input.certifications);
+  }
+
   const sustainability = 60; // placeholder until we wire sustainability signals
 
   // Raw 0-100 dim scores used by both modes.

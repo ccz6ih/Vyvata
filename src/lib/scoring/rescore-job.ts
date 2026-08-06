@@ -13,6 +13,7 @@ import {
   type ManufacturerRow,
   type ComplianceFlagRow,
   type ProductScore,
+  type CategoryMetadata,
 } from "@/lib/product-scoring";
 import type { ScoreMode } from "@/lib/scoring/dimension-caps";
 
@@ -64,7 +65,7 @@ export async function rescoreProducts(
 
   let query = supabase
     .from("products")
-    .select("id, brand, name, manufacturer_id")
+    .select("id, brand, name, manufacturer_id, category")
     .eq("status", "active");
   if (opts?.productIds && opts.productIds.length > 0) {
     query = query.in("id", opts.productIds);
@@ -83,7 +84,7 @@ export async function rescoreProducts(
       // Pull everything the scorer needs + current scores (per mode) for
       // comparison. The product_scores.score_mode column gates the lookup so
       // each mode is compared independently.
-      const [ingRes, certRes, mfrRes, flagsRes, currentRes] = await Promise.all([
+      const [ingRes, certRes, mfrRes, flagsRes, metaRes, currentRes] = await Promise.all([
         supabase
           .from("product_ingredients")
           .select("ingredient_name, dose, unit, form, bioavailability, is_proprietary_blend")
@@ -110,6 +111,11 @@ export async function rescoreProducts(
               : `matched_product_id.eq.${product.id}`
           ),
         supabase
+          .from("product_category_metadata")
+          .select("*")
+          .eq("product_id", product.id)
+          .maybeSingle(),
+        supabase
           .from("product_scores")
           .select("integrity_score, tier, score_mode")
           .eq("product_id", product.id)
@@ -120,6 +126,7 @@ export async function rescoreProducts(
       const certifications = (certRes.data ?? []) as unknown as CertificationRow[];
       const manufacturer = (mfrRes.data ?? null) as unknown as ManufacturerRow | null;
       const complianceFlags = (flagsRes.data ?? []) as unknown as ComplianceFlagRow[];
+      const categoryMetadata = (metaRes.data ?? null) as unknown as CategoryMetadata | null;
       const currentByMode = new Map<ScoreMode, { integrity_score: number; tier: string }>();
       for (const row of (currentRes.data ?? []) as Array<{
         integrity_score: number;
@@ -141,6 +148,7 @@ export async function rescoreProducts(
         certifications,
         manufacturer,
         complianceFlags,
+        categoryMetadata: categoryMetadata ?? undefined,
       });
 
       const writes: Array<{ mode: ScoreMode; score: ProductScore }> = [

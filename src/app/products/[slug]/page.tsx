@@ -891,8 +891,10 @@ function DimensionBar({
   weight: number;
   tierColor: string;
 }) {
-  const v = value ?? 0;
+  const v = value != null ? Number(value) : 0;
   const color = v >= 80 ? "#34D399" : v >= 60 ? "#14B8A6" : v >= 40 ? "#F59E0B" : "#F87171";
+  const fillWidth = Math.min(100, Math.max(2, v));
+  
   return (
     <div className="flex items-center gap-3">
       <div className="w-36 shrink-0 flex items-center gap-2 text-xs" style={{ color: "#C9D6DF" }}>
@@ -902,10 +904,17 @@ function DimensionBar({
           {weight}%
         </span>
       </div>
-      <div className="flex-1 h-2 rounded-full" style={{ background: "rgba(201,214,223,0.06)" }}>
+      <div 
+        className="flex-1 h-2 rounded-full overflow-hidden" 
+        style={{ background: "rgba(201,214,223,0.06)" }}
+      >
         <div
-          className="h-full rounded-full"
-          style={{ width: `${Math.max(2, v)}%`, background: color }}
+          className="h-full rounded-full transition-all duration-500 ease-out"
+          style={{ 
+            width: `${fillWidth}%`, 
+            background: color,
+            minWidth: v > 0 ? '2%' : '0%',
+          }}
         />
       </div>
       <div
